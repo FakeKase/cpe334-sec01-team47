@@ -1,0 +1,27 @@
+# Secrets - never commit real env files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*-key.json
+service-account*.json
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Course handout PDFs (not ours to publish)
+docs/*.pdf
