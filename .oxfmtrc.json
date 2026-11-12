@@ -1,0 +1,15 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"printWidth": 120,
+	"singleQuote": false,
+	"jsxSingleQuote": false,
+	"semi": false,
+	"trailingComma": "es5",
+	"bracketSameLine": true,
+	"bracketSpacing": true,
+	"endOfLine": "lf",
+	"insertFinalNewline": true,
+	"sortImports": true,
+	"ignorePatterns": ["**/*.md", "**/*.yml", "**/*.yaml"]
+}
