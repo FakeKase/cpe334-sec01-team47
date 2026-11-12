@@ -1,6 +1,6 @@
 # Part B (2/2) — Requirements Traceability
 
-**Document version:** 0.1 (draft, 2026-11-10)
+**Document version:** 0.2 (draft, 2026-11-12)
 
 Each baseline requirement is mapped to the feature or system responsibility that delivers it, the sprint
 that establishes it and how it is verified. Sprint 1 rows give the exact acceptance criteria (AC) and test
@@ -13,12 +13,12 @@ verification. Their AC and tests are written when those contracts are prepared.
 
 | Req | Feature / responsibility | Sprint | Verification |
 |---|---|---|---|
-| FR-01 Log in | F-01 | 1 | AC-01, AC-02, AC-03 / TEST-01, TEST-02, TEST-03, TEST-11 |
-| FR-02 Log out | F-01 | 1 | AC-05 / TEST-06, TEST-11 |
+| FR-01 Log in | F-01 | 1 | AC-01, AC-02, AC-03, AC-09 / TEST-01, TEST-02, TEST-03, TEST-11 |
+| FR-02 Log out | F-01 | 1 | AC-05, AC-09 / TEST-06, TEST-11 |
 | FR-03 Current user | F-01 | 1 | AC-04 / TEST-04, TEST-05 |
-| FR-04 Browse catalog | F-02 | 1 | AC-10, AC-11, AC-14 / TEST-12, TEST-13, TEST-16 |
+| FR-04 Browse catalog | F-02 | 1 | AC-10, AC-11, AC-13, AC-14 / TEST-12, TEST-13, TEST-15, TEST-16 |
 | FR-05 Item detail | F-02 | 1 | AC-12 / TEST-14 |
-| FR-06 Submit request | F-03 | 1 | AC-15, AC-23 / TEST-17, TEST-27, TEST-40 |
+| FR-06 Submit request | F-03 | 1 | AC-15, AC-17, AC-23 / TEST-17, TEST-20, TEST-27, TEST-40 |
 | FR-07 My requests | F-04 | 1 | AC-24, AC-26 / TEST-28, TEST-30, TEST-40 |
 | FR-08 Custodian request list / queue | F-05 | 1 | AC-27, AC-35 / TEST-31, TEST-41 |
 | FR-09 Approve | F-05 | 1 | AC-28 / TEST-32, TEST-40, TEST-41 |
@@ -26,7 +26,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-11 Cancel | F-06 | 2 | Planned: API tests per allowed/forbidden state; E2E cancel |
 | FR-12 Checkout | F-07 | 2 | Planned: API tests incl. BR-09 window boundaries |
 | FR-13 Return | F-07 | 2 | Planned: API tests GOOD/DAMAGED; DB check item status |
-| FR-14 Overdue | F-08 | 2 | Planned: unit tests on overdue derivation with fixed clock; API list test |
+| FR-14 Overdue | F-08 | 2 | Planned: unit tests on overdue derivation with fixed clock; API list test; F-02 regression test that an overdue `CHECKED_OUT` loan stays in `committedPeriods` and makes `availableToday` false |
 | FR-15 Create/edit items | F-09 | 2 | Planned: API tests incl. BR-12; E2E create item |
 | FR-16 Item status | F-09 | 2 | Planned: API tests incl. BR-11 |
 | FR-17 Categories | F-10 | 3 | Planned: API tests (unique name, custodian-only) |
@@ -41,7 +41,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 |---|---|---|---|
 | BR-01 Valid loan period | F-03 | 1 | AC-16 / TEST-18 (unit), TEST-19 |
 | BR-02 Only active items | F-03 (create), F-05 (approve) | 1 | AC-18, AC-30 / TEST-21, TEST-34 |
-| BR-03 No double booking | F-03, F-05; overdue extension in F-08 | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39; extension planned in F-08 |
+| BR-03 No double booking | F-03, F-05; overdue extension in F-08 (also changes F-02) | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39; extension planned in F-08 |
 | BR-04 No duplicate request | F-03 | 1 | AC-20 / TEST-24 |
 | BR-05 Active request limit | F-03 | 1 | AC-21 / TEST-25 |
 | BR-06 Lifecycle transitions | F-05 (approve/reject); F-06, F-07 (rest) | 1, 2 | AC-32 / TEST-36 (unit, full table), TEST-37; remaining transitions planned in F-06/F-07 |
@@ -58,8 +58,8 @@ verification. Their AC and tests are written when those contracts are prepared.
 
 | Req | Feature / responsibility | Sprint | Verification |
 |---|---|---|---|
-| NFR-01 Authentication required | F-01 | 1 | AC-04, AC-06 / TEST-05, TEST-07 |
-| NFR-02 Backend authorization | F-01 (guard), F-04, F-05 | 1 | AC-22, AC-25, AC-33 / TEST-26, TEST-29, TEST-38 |
+| NFR-01 Authentication required | F-01, F-02 | 1 | AC-04, AC-06 / TEST-05, TEST-07 |
+| NFR-02 Backend authorization | F-01 (guard), F-03, F-04, F-05 | 1 | AC-22, AC-25, AC-33 / TEST-26, TEST-29, TEST-38 |
 | NFR-03 Password storage | F-01, SR-01 (seed) | 1 | AC-07 / TEST-08, TEST-09; secret scan in SR-02 |
 | NFR-04 Session lifetime | F-01 | 1 | AC-04, AC-05, AC-07 / TEST-05, TEST-06, TEST-09 |
 | NFR-05 Concurrency-safe approval | F-05 | 1 | AC-34 / TEST-39 |
@@ -71,7 +71,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 | NFR-11 Performance | SR-03 (with F-11) | 3 | Scripted p95 timing with large seed |
 | NFR-12 Responsive UI | SR-03 | 3 | Playwright 360 px viewport run + manual check |
 | NFR-13 Accessibility basics | SR-03 | 3 | Playwright + axe-core scan |
-| NFR-14 Login throttling | SR-03 | 3 | API test of 6th attempt → 429 |
+| NFR-14 Login throttling | SR-02 | 2 | API test of 6th attempt → 429 |
 
 ## B2. Coverage check
 
@@ -80,6 +80,10 @@ verification. Their AC and tests are written when those contracts are prepared.
 - **Features with no requirement:** none.
 - **Split requirements:** BR-03 and BR-06 are established in Sprint 1 and extended in Sprint 2. Each
   extension must add tests to that sprint's STS.
+- **Sprint 2 impact on Sprint 1 contracts:** when F-08 adds overdue loans, an overdue `CHECKED_OUT` request
+  has `dueDate < today` but still occupies the item. F-02 must then change too: `committedPeriods` must
+  include overdue `CHECKED_OUT` requests (not only `dueDate ≥ today`), and `availableToday` must be false
+  while such a loan is open. F-02, F-03 and F-05 get a new contract version in Sprint 2.
 - **Known verification gap:** NFR-07 to NFR-10 rely on Lab 5 evidence (CI runs, screenshots), not only on
   unit or API tests.
 
@@ -90,4 +94,5 @@ date and reason. The original text stays in version history.
 
 | Change ID | Date | Change | Reason | Approved by |
 |---|---|---|---|---|
-| — | — | No changes yet (baseline v0.1). | — | — |
+| CH-01 | 2026-11-12 | NFR-14 login throttling moved from SR-03 (Sprint 3) to SR-02 (Sprint 2). | The service is public from Sprint 2 with seeded accounts (PR #3 review). | Team (PR #3) |
+| CH-02 | 2026-11-12 | Sprint 1 target moved from 8 Nov to 15 Nov, overlapping Lab 5. | Deliverable 1 date had passed before the specification was written (PR #3 review). | Team (PR #3) |

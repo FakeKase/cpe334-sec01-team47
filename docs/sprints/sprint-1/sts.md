@@ -10,7 +10,7 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 | **Unit** | Vitest | Pure domain functions (BR-01, overlap, transitions), password and token hashing | `server/test/unit/*.test.ts` | `npm test --prefix server -- unit` |
 | **API integration** | Vitest + Supertest against a real PostgreSQL test DB | Endpoints, persistence, roles, ownership, concurrency | `server/test/api/*.test.ts` | `npm test --prefix server -- api` |
 | **UI component** | Vitest + React Testing Library + MSW (mocked API) | Screen states and form behavior | `client/src/**/*.test.tsx` | `npm test --prefix client` |
-| **End-to-end** | Playwright (Chromium) against `docker compose up` with a seeded DB | Critical user journeys through UI → API → DB | `e2e/*.spec.ts` | `npx playwright test` |
+| **End-to-end** | Playwright (Chromium) against `docker compose up` with a seeded DB (`SEED_DEMO_DATA=true`, `SEED_DEMO_REQUESTS=false`) | Critical user journeys through UI → API → DB | `e2e/*.spec.ts` | `npx playwright test` |
 
 **Common preconditions**
 
@@ -94,7 +94,7 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 
 | Test | AC | Level | Precondition / input | Action | Expected result |
 |---|---|---|---|---|---|
-| TEST-40 | AC-23, AC-24, AC-28 (UI), FR-06–FR-09 | E2E | Fresh seeded app | Borrower 1 logs in → opens `CPE-0201` → requests 3 days starting tomorrow → sees **Pending** in My requests → logs out. Custodian logs in → approves it → logs out. Borrower 1 logs in again → My requests. Then the **page is reloaded**. | The request shows **Approved** after the reload, proving the decision was persisted and retrieved from the DB. The item page shows the period under "Booked periods". |
+| TEST-40 | AC-23, AC-24, AC-28 (UI), FR-06–FR-09 | E2E | Fresh seeded app, `SEED_DEMO_REQUESTS=false` (no existing booking on `CPE-0201`) | Borrower 1 logs in → opens `CPE-0201` → requests 3 days starting tomorrow → sees **Pending** in My requests → logs out. Custodian logs in → approves it → logs out. Borrower 1 logs in again → My requests. Then the **page is reloaded**. | The request shows **Approved** after the reload, proving the decision was persisted and retrieved from the DB. The item page shows the period under "Booked periods". |
 
 ## 3. AC → test coverage
 
@@ -131,3 +131,4 @@ test name.
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial STS for AC-01–AC-35 | Sprint 1 planning |
+| 0.2 | 2026-11-12 | E2E runs with `SEED_DEMO_REQUESTS=false`; TEST-40 precondition states it. | PR #3 review: the demo booking on `CPE-0201` could make TEST-40 fail with `PERIOD_UNAVAILABLE`. |

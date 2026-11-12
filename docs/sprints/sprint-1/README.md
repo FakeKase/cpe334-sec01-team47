@@ -24,13 +24,13 @@ and the test harness runs against an isolated database.
 
 1. Open a GitHub Issue per feature (`F-0x: …`) labelled `sprint-1`, link the contract, and name the owner and
    the reviewer.
-2. Branch from `sprint-1` (staging): `feat/F-0x-short-name`.
+2. Branch from `staging`: `feat/F-0x-short-name`.
 3. **Contract first:** commit the contract and its tests as written in the STS (`docs:` + `test:` commits).
    Run them and keep the **failing** output as evidence of TDD (red).
 4. Implement until the tests pass (`feat:` commits). Keep the **passing** output (green).
-5. Open a PR into `sprint-1` that references the Issue and lists the AC covered. The teammate reviews it and
+5. Open a PR into `staging` that references the Issue and lists the AC covered. The teammate reviews it and
    records a specific check, question, finding or reason for approval. Authors never approve their own PRs.
-6. When all features are merged, run the full suite on `sprint-1`, open the release PR `sprint-1 → main`, review
+6. When all features are merged, run the full suite on `staging`, open the release PR `staging → main`, review
    it, merge it and tag `v0.1.0`.
 
 If a contract changes during implementation, bump its version, add a row to its version history with the
@@ -65,7 +65,7 @@ A feature is **done** only when all of the following hold, **with evidence**:
 - [ ] AC-01 – AC-35 → TEST-01 – TEST-41 all pass on the tagged commit. The results table in [sts.md §4](sts.md#4-results-table-fill-in-at-release--part-f) is filled in.
 - [ ] TDD evidence (red → green) is retained for at least the BR-03 overlap rule (TEST-22/23) and the ownership rule (TEST-29).
 - [ ] The demo journey (TEST-40), a rule rejection (e.g. TEST-23 `PERIOD_UNAVAILABLE`) and a forbidden operation (TEST-29 / TEST-38) are captured as screenshots for Part F.
-- [ ] Release PR `sprint-1 → main` is merged and `v0.1.0` tagged. The README has local setup, env, migrate/seed, build and test commands.
+- [ ] Release PR `staging → main` is merged and `v0.1.0` tagged. The README has local setup, env, migrate/seed, build and test commands.
 - [ ] Contribution table and a brief AI-use declaration are prepared for Part F.
 
 ## E4. Version history (Sprint 1 contract set)
@@ -73,3 +73,4 @@ A feature is **done** only when all of the following hold, **with evidence**:
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contracts F-01–F-05, STS (TEST-01–41), DoD | Sprint 1 planning |
+| 0.2 | 2026-11-12 | F-01 v0.2 (login excluded from the 401 redirect), F-02 v0.1.1, STS v0.2; workflow uses the `staging` branch | PR #3 review |

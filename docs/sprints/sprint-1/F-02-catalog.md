@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-04, FR-05, NFR-01 |
 | **Depends on** | F-01 (auth), SR-01 (`Category`, `Item`, `BorrowRequest` tables, seed) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1 (draft, 2026-11-10). See [version history](#version-history). |
+| **Contract version** | 0.1.1 (draft, 2026-11-12). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -20,6 +20,11 @@
   `startDate ≤ today ≤ dueDate` for this item.
 - `committedPeriods` = requests for this item with status `APPROVED` or `CHECKED_OUT` and `dueDate ≥ today`,
   ordered by `startDate`.
+
+> **Sprint 2 note.** These rules assume no request is overdue, which holds in Sprint 1 because checkout does
+> not exist yet. When F-08 adds overdue loans, a `CHECKED_OUT` request with `dueDate < today` still occupies
+> the item. Both derived values must then also count open overdue checkouts, or the item would show as free.
+> That change is a new version of this contract in Sprint 2 (see [traceability.md §B2](../../traceability.md#b2-coverage-check)).
 
 ## 2. Rules, validation and failure cases
 
@@ -108,3 +113,4 @@ Tests: see [sts.md](sts.md) (TEST-12 to TEST-16).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
+| 0.1.1 | 2026-11-12 | Added the Sprint 2 note on overdue checkouts. No Sprint 1 behavior change. | PR #3 review. |

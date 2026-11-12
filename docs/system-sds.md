@@ -1,6 +1,6 @@
 # Part C — System-Level Software Design Specification (SDS)
 
-**Document version:** 0.1 (draft, 2026-11-10)
+**Document version:** 0.2 (draft, 2026-11-12)
 Requirement IDs refer to [srs.md](srs.md). Feature IDs refer to [features.md](features.md).
 
 ---
@@ -208,10 +208,13 @@ again changes nothing.
 | Categories | Microcontrollers, Single-board computers, Measurement instruments, Audio-visual |
 | Items (12) | e.g. `CPE-0001` Arduino Uno R3, `CPE-0002` Arduino Uno R3, `CPE-0101` Raspberry Pi 5 kit, `CPE-0201` Rigol DS1054Z oscilloscope, `CPE-0202` Fluke 117 multimeter, `CPE-0301` Epson portable projector … including **one `MAINTENANCE`** and **one `RETIRED`** item to demonstrate BR-02 |
 | Users | `custodian@example.test` (CUSTODIAN), `borrower1@example.test` and `borrower2@example.test` (BORROWER). Two borrowers are needed to demonstrate ownership (BR-14). |
-| Requests (demo only) | One `APPROVED` request on `CPE-0201` for a future period, to demonstrate the overlap rejection (BR-03). Only created when `SEED_DEMO_REQUESTS=true`. |
+| Requests (demo only) | One `APPROVED` request on `CPE-0201` from **today + 7 to today + 9** (dates computed when the seed runs, in `APP_TIMEZONE`), to demonstrate the overlap rejection (BR-03). Only created when `SEED_DEMO_REQUESTS=true`. CI and the E2E run set it to `false`, so tests never collide with it. |
 
-Passwords come from `SEED_CUSTODIAN_PASSWORD` and `SEED_BORROWER_PASSWORD`. The seed **fails** if they are
-missing. They are never in Git, never printed, and in GCP they come from Secret Manager.
+Passwords come from the variables the kit's `docker-compose.yml` and `deploy/deploy.sh` already provide:
+`ADMIN_PASSWORD` for the Custodian and `DEMO_USER_PASSWORD` for both Borrowers. As in the kit, the demo
+users (the two Borrowers) are only created when `SEED_DEMO_DATA=true` (`deploy.sh --demo`; compose defaults to
+`true`). The seed **fails** if `ADMIN_PASSWORD` is missing, or if `SEED_DEMO_DATA=true` and
+`DEMO_USER_PASSWORD` is missing. They are never in Git, never printed, and in GCP they come from Secret Manager.
 
 ---
 
@@ -244,7 +247,7 @@ display name and role, and a **Log out** button. After login, Borrowers land on 
 | Empty | Every list has an explicit empty message, e.g. "No items in this category" or "You have no requests yet". |
 | Validation | Client-side checks mirror BR-01 and the required fields and are shown next to the field. Server `400` `details[]` are mapped onto the same fields. |
 | Business-rule errors (409) | Shown in an alert above the form with the server `message`, e.g. "This item is already booked for part of that period." The form keeps the user's input. |
-| 401 | The API client clears the stored token and redirects to `/login?expired=1`, which shows "Your session has ended. Please log in again." |
+| 401 | For any call **except `POST /api/auth/login`**, the API client clears the stored token and redirects to `/login?expired=1`, which shows "Your session has ended. Please log in again." A 401 from the login call (`INVALID_CREDENTIALS`) stays on the form and shows the server message "Invalid email or password." (AC-09). |
 | 403 | A "You are not allowed to do this" page or alert. Navigation to role-only routes is hidden, but the backend still enforces the rule. |
 | 404 | A "Not found" page (also used for another borrower's request). |
 | 5xx / network | A generic "Something went wrong. Please try again." with a Retry button. No technical details. |
@@ -286,7 +289,7 @@ display name and role, and a **Log out** button. After login, Borrowers land on 
 | 409 | `ACTIVE_LIMIT_REACHED` | BR-05 |
 | 409 | `INVALID_TRANSITION` | BR-06 |
 | 409 | `OVERDUE_BLOCK` | BR-08 (S2) |
-| 429 | `TOO_MANY_ATTEMPTS` | NFR-14 (S3) |
+| 429 | `TOO_MANY_ATTEMPTS` | NFR-14 (S2) |
 | 500 | `INTERNAL_ERROR` | Unexpected error. Details are logged on the server only (NFR-06). |
 
 ### C4.3 Endpoint overview
@@ -342,7 +345,7 @@ Feature contracts define the exact request and response shapes. Sprint 1 endpoin
 | Request authentication | `requireAuth` hashes the presented token, loads the session with its user, rejects a missing or expired session (and deletes an expired row), then sets `req.user = { id, email, displayName, role }`. |
 | Current user | `GET /api/auth/me` returns `req.user`. Never returns `passwordHash` or session data. |
 | Logout | `POST /api/auth/logout` deletes the session row for the presented token → 204. The client clears `sessionStorage` and goes to `/login`. Later use of the token → 401. |
-| Hardening | `helmet` (CSP, no-sniff, frame-ancestors none), JSON body limit 100 kb, `trust proxy` on Cloud Run, login throttling in S3 (NFR-14). |
+| Hardening | `helmet` (CSP, no-sniff, frame-ancestors none), JSON body limit 100 kb, `trust proxy` on Cloud Run, login throttling in S2 with SR-02 (NFR-14), before the service is public. |
 
 ---
 
@@ -358,8 +361,10 @@ Feature contracts define the exact request and response shapes. Sprint 1 endpoin
 | `APP_TIMEZONE` | server | No | default `Asia/Bangkok` | Defines "today" for BR-01, BR-09, overdue |
 | `SESSION_TTL_HOURS` | server | No | default `8` | NFR-04 |
 | `BCRYPT_COST` | server, seed | No | default `12` (tests: `4`) | NFR-03 |
-| `SEED_CUSTODIAN_PASSWORD`, `SEED_BORROWER_PASSWORD` | seed | **Yes** | `.env` / Secret Manager | Demo account passwords |
-| `SEED_DEMO_REQUESTS` | seed | No | `.env` | Adds demo requests |
+| `ADMIN_PASSWORD` | seed | **Yes** | `.env` / Secret Manager | Custodian account password (kit name) |
+| `DEMO_USER_PASSWORD` | seed | **Yes** | `.env` / Secret Manager | Borrower account passwords (kit name) |
+| `SEED_DEMO_DATA` | seed | No | `.env` / `deploy.sh --demo` | Creates the Borrower demo users (kit name) |
+| `SEED_DEMO_REQUESTS` | seed | No | `.env` (default `false`; `false` in CI and E2E) | Adds the demo booking on `CPE-0201` |
 | `GIT_COMMIT_SHA` | server | No | Set at image build (`--build-arg`) | Reported by `/api/health` (NFR-10) |
 | `CORS_ORIGIN` | server (dev only) | No | `.env` | Only when the client runs on a different origin |
 | `VITE_API_URL` | client build | No | `client/.env` | API base URL; empty means same origin |

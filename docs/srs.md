@@ -2,7 +2,7 @@
 
 **Product:** Inventory and Borrowing System (ระบบคลังอุปกรณ์และยืม-คืน)
 **Team:** CPE 334 Section 01, Team 47
-**Document version:** 0.1 (draft, 2026-11-10). See [Version history](#a8-version-history).
+**Document version:** 0.2 (draft, 2026-11-12). See [Version history](#a8-version-history).
 
 ---
 
@@ -148,7 +148,7 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 | **NFR-11** | **Performance.** With 500 items and 5,000 requests seeded, `GET /api/items` and `GET /api/requests` respond with p95 < **500 ms** locally (50 sequential calls). | Scripted timing check | 3 |
 | **NFR-12** | **Responsive UI.** All screens are usable at **360 px** width with no horizontal scrolling. | Playwright mobile-viewport E2E + manual check | 3 |
 | **NFR-13** | **Accessibility basics.** Every form control has a label. All actions are keyboard-reachable. Automated axe scan reports no *serious/critical* violations on main screens. | Playwright + axe-core | 3 |
-| **NFR-14** | **Login throttling.** After 5 failed logins for the same email within 15 minutes, further attempts get **429** for the rest of the window. | API test | 3 |
+| **NFR-14** | **Login throttling.** After 5 failed logins for the same email within 15 minutes, further attempts get **429** for the rest of the window. | API test | 2 |
 
 ---
 
@@ -195,3 +195,4 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Team 47 | Initial SRS: context, actors, scope, FR-01–21, BR-01–14, NFR-01–14, assumptions and decisions. |
+| 0.2 | 2026-11-12 | Team 47 | NFR-14 moved to Sprint 2 (CH-01), PR #3 review. |
