@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-01, FR-02, FR-03, BR-13 (role guard), NFR-01, NFR-03, NFR-04, NFR-06 |
 | **Depends on** | SR-01 (app skeleton, `User`/`Session` tables, seed, test harness) |
 | **Sprint** | 1 |
-| **Contract version** | 0.2 (draft, 2026-11-12). See [version history](#version-history). |
+| **Contract version** | 0.2.1 (draft, 2026-11-12). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -77,8 +77,8 @@ Errors: 400 `VALIDATION_ERROR`, 401 `INVALID_CREDENTIALS`.
 ## 5. Data
 
 Uses `User` and `Session` exactly as in [system-sds.md §C2](../../system-sds.md#c2-data-design). It is created
-by the initial migration in SR-01. **No other schema change.** The seed creates three users with bcrypt
-hashes from `ADMIN_PASSWORD` (Custodian) and `DEMO_USER_PASSWORD` (Borrowers), the names used by the
+by the initial migration in SR-01. **No other schema change.** The seed creates the Custodian with a bcrypt
+hash from `ADMIN_PASSWORD` and, when `SEED_DEMO_DATA=true`, the two Borrowers from `DEMO_USER_PASSWORD`, the names used by the
 kit's `docker-compose.yml` and `deploy.sh` (see [system-sds.md §C2.4](../../system-sds.md#c24-seed-data)).
 
 ## 6. UI
@@ -112,3 +112,4 @@ Tests: see [sts.md](sts.md) (TEST-01 to TEST-11).
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
 | 0.2 | 2026-11-12 | Step 7: the login call is excluded from the 401 → `/login?expired=1` rule. §5: seed password variables renamed to the kit's names. | PR #3 review: a wrong password would otherwise show "Your session has ended" and break AC-09 / TEST-11. |
+| 0.2.1 | 2026-11-12 | §5: the Borrowers are created only when `SEED_DEMO_DATA=true`. No behavior change. | PR #3 review: wording still said three users. |

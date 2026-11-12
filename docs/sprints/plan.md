@@ -51,7 +51,7 @@ is tagged `v0.1.0` on `main` after a reviewed `staging → main` PR.
 
 | Feature | Delivers | Depends on |
 |---|---|---|
-| SR-02 | Dockerfile/compose adapted, `.env.example`, `ci-docker.yml` required check, GCP deploy (Cloud Run, Cloud SQL, Secret Manager), `deploy.yml`, commit SHA in `/api/health`, NFR-14 login throttling (before the service is public with seeded accounts) | SR-01 (Sprint 1 release) |
+| SR-02 | Dockerfile/compose adapted, `.env.example`, `ci-docker.yml` required check, GCP deploy (Cloud Run, Cloud SQL, Secret Manager), `deploy.yml`, commit SHA in `/api/health`, NFR-14 login throttling (before the service is public with seeded accounts) | SR-01. Infrastructure starts during Sprint 1 (D5); deploying the app needs the Sprint 1 release |
 | F-06 | Borrower cancels `PENDING`/`APPROVED` | F-04 |
 | F-07 | Checkout with BR-09 window; return with condition, BR-10 | F-05 |
 | F-08 | Overdue derivation, overdue list, BR-08 block, BR-03 overdue extension | F-07 |
@@ -88,8 +88,9 @@ recorded by 13 Dec.
   the same day as Lab 5, so Sprint 1 and Lab 5 overlap. Lab 5 deploys the Sprint 1 release, so `v0.1.0` must
   be tagged on `main` before the final Lab 5 deploy. To make this feasible: SR-01 and F-01 are done first,
   SR-02 infrastructure work runs in parallel with F-03–F-05, and Sprint 2 starts after 15 Nov with 14 days to
-  Deliverable 2 (29 Nov). If Sprint 1 is not complete by 15 Nov, F-05 reject (AC-31) is the first item to
-  slip, and the change is recorded in [traceability.md §B3](../traceability.md#b3-approved-changes).
+  Deliverable 2 (29 Nov). If Sprint 1 is not complete by 15 Nov, F-05 reject is the first item to slip. It
+  takes AC-31 (TEST-35) and the reject UI journey AC-35 (TEST-41) with it. AC-21 (TEST-25) does not depend on
+  the reject endpoint, because its fixture sets the status directly. The change is recorded in [traceability.md §B3](../traceability.md#b3-approved-changes).
 - Sprint 1 has 5 features plus the foundation, and its 35 acceptance criteria are mostly small API tests on
   one shared harness. In the shortened window (12–15 Nov) this is only feasible if SR-01 is finished first
   and both students work on features in parallel.

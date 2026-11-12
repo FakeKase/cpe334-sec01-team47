@@ -1,6 +1,6 @@
 # Sprint 1 — Software Test Specification (STS)
 
-**Document version:** 0.1 (draft, 2026-11-10)
+**Document version:** 0.2.1 (draft, 2026-11-12)
 Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](F-01-authentication.md) to [F-05](F-05-review-requests.md).
 
 ## 1. Test levels, tools and environment
@@ -63,7 +63,7 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 | TEST-22 | AC-19 | Unit | — | `periodsOverlap` for (20–22 vs 22–24), (20–22 vs 23–25), (20–22 vs 18–20), (20–22 vs 21–21), (20–22 vs 10–30) | true, false, true, true, true. |
 | TEST-23 | AC-19 | API | Item X: Borrower 2's APPROVED 20–22 Nov. Item Y: Borrower 2's PENDING 20–22 Nov | Borrower 1 requests X 22–24, X 23–25, Y 21–21 | 409 `PERIOD_UNAVAILABLE`; 201; 201. |
 | TEST-24 | AC-20 | API | Borrower 1's PENDING on X 20–22 Nov | Borrower 1 requests X 21–23, then item Z 21–23 | 409 `DUPLICATE_REQUEST`; 201. |
-| TEST-25 | AC-21 | API | Borrower 1 has 3 PENDING requests on different items | Request a 4th; Custodian rejects one; request again | 409 `ACTIVE_LIMIT_REACHED` and the active count stays 3; reject 200; then 201. |
+| TEST-25 | AC-21 | API | Borrower 1 has 3 PENDING requests on different items | Request a 4th; set one of the 3 to `REJECTED` via Prisma; request again | 409 `ACTIVE_LIMIT_REACHED` and the active count stays 3; then 201. (The fixture sets the status directly, so this test does not depend on the F-05 reject endpoint.) |
 | TEST-26 | AC-22 | API | Custodian token | `POST /api/requests` with a valid body | 403 `FORBIDDEN`. Request count unchanged. |
 | TEST-27 | AC-23 | Component | MSW: POST returns 409 `PERIOD_UNAVAILABLE` | Fill due < start → submit; then fix the dates → submit | Field error "Due date must be on or after the start date." and no request is sent; then the alert shows the server message and the inputs keep their values. |
 
@@ -132,3 +132,4 @@ test name.
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial STS for AC-01–AC-35 | Sprint 1 planning |
 | 0.2 | 2026-11-12 | E2E runs with `SEED_DEMO_REQUESTS=false`; TEST-40 precondition states it. | PR #3 review: the demo booking on `CPE-0201` could make TEST-40 fail with `PERIOD_UNAVAILABLE`. |
+| 0.2.1 | 2026-11-12 | TEST-25 sets the rejected status via Prisma instead of calling the reject endpoint. | PR #3 review: keeps AC-21 testable if F-05 reject slips (plan.md §D5). |

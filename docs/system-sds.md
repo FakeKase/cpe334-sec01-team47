@@ -201,7 +201,9 @@ stateDiagram-v2
 ### C2.4 Seed data
 
 `npm run prisma:seed` is **idempotent**: it upserts by email, category name and asset tag, so running it
-again changes nothing.
+again changes nothing. The demo booking is created only when `CPE-0201` has no `APPROVED` or `CHECKED_OUT`
+request yet. A rerun (for example the migration job on every deploy) leaves an existing booking and its dates
+unchanged.
 
 | Data | Content |
 |---|---|
