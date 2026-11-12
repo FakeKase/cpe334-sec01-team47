@@ -27,3 +27,6 @@ __pycache__/
 
 # Course handout PDFs (not ours to publish)
 docs/*.pdf
+
+# Server test env holds fake values only
+!server/test/.env.test

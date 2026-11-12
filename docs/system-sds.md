@@ -1,6 +1,6 @@
 # Part C — System-Level Software Design Specification (SDS)
 
-**Document version:** 0.2 (draft, 2026-11-12)
+**Document version:** 0.2.1 (draft, 2026-11-12): entry point is `index.ts`; S2 columns are added in Sprint 2 (SR-01)
 Requirement IDs refer to [srs.md](srs.md). Feature IDs refer to [features.md](features.md).
 
 ---
@@ -65,7 +65,7 @@ flowchart LR
 server/
   src/
     app.ts              # builds Express app (no listen) – imported by tests
-    server.ts           # listen(PORT)
+    index.ts            # listen(PORT); entry point of the kit Dockerfile (`node dist/index.js`)
     config.ts           # reads + validates env (Zod); fails fast on missing values
     clock.ts            # today() in APP_TIMEZONE; injectable for tests
     middleware/         # requireAuth, requireRole, errorHandler, notFound
@@ -192,7 +192,8 @@ stateDiagram-v2
 - The schema lives in `server/prisma/schema.prisma`. Every change is a Prisma migration committed under
   `server/prisma/migrations/`. Migrations are **additive** (new columns are nullable or have defaults) so that
   a release can migrate before traffic moves (Lab 5 recommendation). The `CHECK` constraint is added by
-  editing the generated migration SQL.
+  editing the generated migration SQL. The Sprint 1 `init` migration omits the columns marked `(S2)` in the
+  ER diagram; Sprint 2 adds them in an additive migration.
 - Local setup: `docker compose up -d db`, then `npx prisma migrate dev` (development) or
   `npx prisma migrate deploy` (CI, Docker, Cloud Run job).
 - Tests use a separate database (`DATABASE_URL` pointing to `…/inventory_test`). It is migrated once per test
