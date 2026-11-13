@@ -1,5 +1,5 @@
 # ##############################################################################
-# TokTickIT — Unified production Dockerfile (multi-stage)
+# YuemPuenMa — Unified production Dockerfile (multi-stage)
 # ##############################################################################
 # WHAT THIS FILE DOES
 #   Builds ONE image that contains the API (Elysia on Bun) AND the built React SPA and
