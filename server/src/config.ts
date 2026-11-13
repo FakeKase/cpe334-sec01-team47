@@ -4,6 +4,7 @@ const schema = z.object({
 	DATABASE_URL: z.string().min(1),
 	PORT: z.coerce.number().int().positive().default(3000),
 	APP_TIMEZONE: z.string().default("Asia/Bangkok"),
+	SESSION_TTL_HOURS: z.coerce.number().positive().default(8),
 })
 
 export function loadConfig(env: Record<string, string | undefined> = process.env) {

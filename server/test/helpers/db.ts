@@ -5,6 +5,8 @@ import { seed } from "../../prisma/seedData"
 export const prisma = new PrismaClient()
 
 export const TEST_TODAY = "2026-11-15"
+/** 12:00 on TEST_TODAY in Asia/Bangkok. */
+export const TEST_NOW = new Date("2026-11-15T05:00:00Z")
 
 export const fixtureOptions = {
 	adminPassword: process.env.ADMIN_PASSWORD!,
