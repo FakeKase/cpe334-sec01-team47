@@ -5,6 +5,14 @@ import { http, HttpResponse } from "msw"
 import { borrower, custodian, renderApp } from "../test/render"
 import { server } from "../test/server"
 
+// The catalog is the landing page for Borrowers, so every test that signs one in needs these two endpoints.
+beforeEach(() =>
+	server.use(
+		http.get("/api/categories", () => HttpResponse.json([])),
+		http.get("/api/items", () => HttpResponse.json([]))
+	)
+)
+
 const loginOk = (user: typeof borrower) =>
 	http.post("/api/auth/login", () => HttpResponse.json({ token: "t", expiresAt: "2030-01-01T00:00:00Z", user }))
 

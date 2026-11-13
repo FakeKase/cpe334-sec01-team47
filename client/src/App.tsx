@@ -3,6 +3,8 @@ import { Navigate, Outlet, Route, Routes } from "react-router"
 import { homeFor, useAuth } from "./auth/AuthContext"
 import { RequireAuth, RequireRole } from "./auth/guards"
 import { Header } from "./components/Header"
+import { Catalog } from "./pages/Catalog"
+import { ItemDetail } from "./pages/ItemDetail"
 import { Login } from "./pages/Login"
 import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/SystemPages"
@@ -30,8 +32,8 @@ export function App() {
 			<Route element={<RequireAuth />}>
 				<Route element={<Layout />}>
 					<Route index element={<Home />} />
-					<Route path="/items" element={<Placeholder title="Catalog" />} />
-					<Route path="/items/:id" element={<Placeholder title="Item detail" />} />
+					<Route path="/items" element={<Catalog />} />
+					<Route path="/items/:id" element={<ItemDetail />} />
 					<Route element={<RequireRole allow="BORROWER" />}>
 						<Route path="/my-requests" element={<Placeholder title="My requests" />} />
 					</Route>
