@@ -7,10 +7,10 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 
 | Level | Tool | Scope | Location (planned) | Command |
 |---|---|---|---|---|
-| **Unit** | Vitest | Pure domain functions (BR-01, overlap, transitions), password and token hashing | `server/test/unit/*.test.ts` | `npm test --prefix server -- unit` |
-| **API integration** | Vitest + Supertest against a real PostgreSQL test DB | Endpoints, persistence, roles, ownership, concurrency | `server/test/api/*.test.ts` | `npm test --prefix server -- api` |
-| **UI component** | Vitest + React Testing Library + MSW (mocked API) | Screen states and form behavior | `client/src/**/*.test.tsx` | `npm test --prefix client` |
-| **End-to-end** | Playwright (Chromium) against `docker compose up` with a seeded DB (`SEED_DEMO_DATA=true`, `SEED_DEMO_REQUESTS=false`) | Critical user journeys through UI → API → DB | `e2e/*.spec.ts` | `npx playwright test` |
+| **Unit** | Vitest | Pure domain functions (BR-01, overlap, transitions), password and token hashing | `server/test/unit/*.test.ts` | `bun run --cwd server test unit` |
+| **API integration** | Vitest + Supertest against a real PostgreSQL test DB | Endpoints, persistence, roles, ownership, concurrency | `server/test/api/*.test.ts` | `bun run --cwd server test api` |
+| **UI component** | Vitest + React Testing Library + MSW (mocked API) | Screen states and form behavior | `client/src/**/*.test.tsx` | `bun run --cwd client test` |
+| **End-to-end** | Playwright (Chromium) against `docker compose up` with a seeded DB (`SEED_DEMO_DATA=true`, `SEED_DEMO_REQUESTS=false`) | Critical user journeys through UI → API → DB | `e2e/*.spec.ts` | `bunx playwright test` |
 
 **Common preconditions**
 

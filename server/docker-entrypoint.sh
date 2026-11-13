@@ -3,7 +3,7 @@ set -e
 
 # ------------------------------------------------------------------------------
 # Container entrypoint (the Dockerfiles use it as ENTRYPOINT).
-# It only hands control to the CMD (`node dist/index.js`) via `exec`, so the app
+# It only hands control to the CMD (`bun src/index.ts`) via `exec`, so the app
 # becomes PID 1 and receives SIGTERM from Cloud Run for a graceful shutdown.
 # CHANGE ME: add start-up steps above the last line if your stack needs them,
 #            but keep `exec "$@"`.
