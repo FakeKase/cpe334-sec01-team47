@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-06, BR-01, BR-02, BR-03, BR-04, BR-05, BR-13, NFR-02 |
 | **Depends on** | F-01 (auth, `requireRole`), F-02 (item detail page) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1 (draft, 2026-11-10). See [version history](#version-history). |
+| **Contract version** | 0.1.1 (draft, 2026-11-13). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -36,7 +36,7 @@ periodsOverlap(aStart, aDue, bStart, bDue): boolean   // aStart <= bDue && bStar
 
 | # | Case | Result |
 |---|---|---|
-| 1 | `itemId` missing / not UUID; `startDate`/`dueDate` missing or not a real `YYYY-MM-DD` date; `purpose` empty after trim or > 300 chars | 400 `VALIDATION_ERROR` + `details` |
+| 1 | `itemId` missing / not UUID; `startDate`/`dueDate` missing or not a real `YYYY-MM-DD` date; `purpose` empty or > 300 chars **after trimming** | 400 `VALIDATION_ERROR` + `details` |
 | 2 | BR-01: start before today; due before start; period > 14 days | 400 `VALIDATION_ERROR`, field-specific message above |
 | 3 | Item does not exist or is `RETIRED` | 404 `NOT_FOUND` |
 | 4 | BR-02: item is `MAINTENANCE` | 409 `ITEM_NOT_AVAILABLE` "This item is under maintenance and cannot be requested." |
@@ -85,7 +85,7 @@ Inserts into `BorrowRequest` (SR-01 migration). Columns written: `itemId`, `borr
 ## 6. UI
 
 On `/items/:id`, Borrowers only: two `<input type="date">` with `min = today`, a `<textarea>` for Purpose
-with a 300-character counter, and **Submit request** (disabled while submitting). Field errors appear under
+with a 300-character counter (it counts the trimmed text), and **Submit request** (disabled while submitting). Field errors appear under
 each field. 409 errors appear in an alert. Success → `/my-requests` with a confirmation banner.
 
 ## 7. Acceptance criteria
@@ -94,7 +94,7 @@ each field. 409 errors appear in an alert. Success → `/my-requests` with a con
 |---|---|
 | **AC-15** | **Given** a Borrower and an `ACTIVE` item with no bookings, **when** they submit a valid request (even with `"borrowerId": <other user>` and `"status": "APPROVED"` in the body), **then** 201 with `status = PENDING` and `borrower.id` = the caller, and the row persists in the DB. |
 | **AC-16** | BR-01 boundaries with today fixed: start = yesterday → 400 (`startDate`); start = today → accepted; due = start − 1 → 400 (`dueDate`); 14-day period → accepted; 15-day period → 400 (`dueDate`). |
-| **AC-17** | Purpose empty, whitespace only, or 301 characters → 400 (`purpose`). 300 characters → accepted. |
+| **AC-17** | Purpose empty, whitespace only, or 301 characters → 400 (`purpose`). 300 characters → accepted, also when surrounded by spaces (the limit applies to the trimmed text). |
 | **AC-18** | Requesting the `MAINTENANCE` item → 409 `ITEM_NOT_AVAILABLE`. Requesting the `RETIRED` item or an unknown UUID → 404. Nothing is stored in either case. |
 | **AC-19** | **Given** an `APPROVED` request on item X for 20–22 Nov, a new request for 22–24 Nov → 409 `PERIOD_UNAVAILABLE`. 23–25 Nov → 201. **Given** only another borrower's `PENDING` request for 20–22 Nov, a request for 21 Nov → 201. |
 | **AC-20** | **Given** the caller's own `PENDING` request on X for 20–22 Nov, another one for 21–23 Nov → 409 `DUPLICATE_REQUEST`. For a different item and the same dates → 201. |
@@ -109,3 +109,4 @@ Tests: see [sts.md](sts.md) (TEST-17 to TEST-27, TEST-40).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
+| 0.1.1 | 2026-11-13 | The 300-character purpose limit applies after trimming (§2, §6, AC-17). | F-03 implementation: the old wording did not say whether surrounding spaces count. The stored value is trimmed, so the limit applies to it. |

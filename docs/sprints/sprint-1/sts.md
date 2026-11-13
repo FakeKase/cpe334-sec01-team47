@@ -1,6 +1,6 @@
 # Sprint 1 — Software Test Specification (STS)
 
-**Document version:** 0.2.1 (draft, 2026-11-12)
+**Document version:** 0.2.2 (draft, 2026-11-13)
 Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](F-01-authentication.md) to [F-05](F-05-review-requests.md).
 
 ## 1. Test levels, tools and environment
@@ -58,7 +58,7 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 | TEST-17 | AC-15 | API | Borrower 1 token, ACTIVE item X with no bookings | `POST /api/requests` with 20–22 Nov, a purpose, plus `borrowerId: <Borrower 2>` and `status: "APPROVED"` | 201. `status = PENDING`. `borrower.id` = Borrower 1. The DB row has `borrowerId` = Borrower 1 and `status = PENDING`. |
 | TEST-18 | AC-16 | Unit | today = 2026-11-15 | `validateLoanPeriod` with (14–15) (15–15) (15–14) (15–28) (15–29) | `startDate` error; `[]`; `dueDate` error; `[]`; `dueDate` "at most 14 days" error. |
 | TEST-19 | AC-16 | API | Borrower token | POST with start 14 Nov; then 15–29 Nov | Both 400 `VALIDATION_ERROR` with the field (`startDate`, `dueDate`). No rows created. |
-| TEST-20 | AC-17 | API | Borrower token | Purpose `""`, `"   "`, 301×"a", 300×"a" | 400, 400, 400 (`purpose`). 201 for 300 characters. |
+| TEST-20 | AC-17 | API | Borrower token | Purpose `""`, `"   "`, 301×"a", 300×"a", 300×"a" with two spaces on each side | 400, 400, 400 (`purpose`). 201 for 300 characters. 201 with the stored purpose trimmed to 300 characters. |
 | TEST-21 | AC-18 | API | Borrower token | POST for `CPE-0901` (MAINTENANCE), `CPE-0999` (RETIRED), random UUID | 409 `ITEM_NOT_AVAILABLE`, 404, 404. Request count unchanged. |
 | TEST-22 | AC-19 | Unit | — | `periodsOverlap` for (20–22 vs 22–24), (20–22 vs 23–25), (20–22 vs 18–20), (20–22 vs 21–21), (20–22 vs 10–30) | true, false, true, true, true. |
 | TEST-23 | AC-19 | API | Item X: Borrower 2's APPROVED 20–22 Nov. Item Y: Borrower 2's PENDING 20–22 Nov | Borrower 1 requests X 22–24, X 23–25, Y 21–21 | 409 `PERIOD_UNAVAILABLE`; 201; 201. |
@@ -133,3 +133,4 @@ test name.
 | 0.1 | 2026-11-10 | Initial STS for AC-01–AC-35 | Sprint 1 planning |
 | 0.2 | 2026-11-12 | E2E runs with `SEED_DEMO_REQUESTS=false`; TEST-40 precondition states it. | PR #3 review: the demo booking on `CPE-0201` could make TEST-40 fail with `PERIOD_UNAVAILABLE`. |
 | 0.2.1 | 2026-11-12 | TEST-25 sets the rejected status via Prisma instead of calling the reject endpoint. | PR #3 review: keeps AC-21 testable if F-05 reject slips (plan.md §D5). |
+| 0.2.2 | 2026-11-13 | TEST-20 adds a padded 300-character purpose. | F-03 v0.1.1: the purpose limit applies after trimming. |
