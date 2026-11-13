@@ -6,7 +6,8 @@ import { defineConfig } from "vite"
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	// In dev the API is on :3000; in Docker and production it shares the origin (see nginx.conf).
-	server: { port: 5173, proxy: { "/api": "http://localhost:3000" } },
+	// ".ts.net" lets the dev server be reached through `tailscale serve`.
+	server: { port: 5173, allowedHosts: [".ts.net"], proxy: { "/api": "http://localhost:3000" } },
 	// Node fetch needs an absolute URL; MSW matches relative handlers against the jsdom origin (http://localhost:3000).
 	test: {
 		environment: "jsdom",
