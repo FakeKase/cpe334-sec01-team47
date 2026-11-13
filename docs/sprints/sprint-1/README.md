@@ -75,3 +75,4 @@ A feature is **done** only when all of the following hold, **with evidence**:
 | 0.1 | 2026-11-10 | Initial contracts F-01–F-05, STS (TEST-01–41), DoD | Sprint 1 planning |
 | 0.2 | 2026-11-12 | F-01 v0.2 (login excluded from the 401 redirect), F-02 v0.1.1, STS v0.2; workflow uses the `staging` branch | PR #3 review |
 | 0.2.1 | 2026-11-12 | F-01 v0.2.1 (seed wording), STS v0.2.1 (TEST-25 no longer uses the reject endpoint; header version corrected) | PR #3 review |
+| 0.2.2 | 2026-11-13 | F-03 v0.1.1 (purpose limit applies after trimming), STS v0.2.2 (TEST-20 padded case) | F-03 implementation |
