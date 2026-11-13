@@ -168,7 +168,7 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 
 | ID | Decision | Alternatives considered | Rationale |
 |---|---|---|---|
-| DD-01 | Use the course reference stack: React (Vite) + Express on Node.js 24 + Prisma + PostgreSQL 16, packaged in one container. | Separate frontend hosting; other frameworks | Matches the Lab 5 starter kit, CI and GCP scripts. Lowest delivery risk. |
+| DD-01 | Use the course reference stack: React (Vite) + Elysia on Bun + Prisma + PostgreSQL 16, packaged in one container. | Separate frontend hosting; other frameworks | Matches the Lab 5 starter kit, CI and GCP scripts. Lowest delivery risk. |
 | DD-02 | Model **items** as individual units with a separate **request** entity that carries the lifecycle. Item status (`ACTIVE`/`MAINTENANCE`/`RETIRED`) is separate from loan state. "On loan" is derived. | A single `status` field on the item (`AVAILABLE`/`ON_LOAN`) | Date-range bookings need history and future commitments, which a single item flag cannot express. |
 | DD-03 | Use **opaque server-side session tokens** returned in the login JSON and sent as `Authorization: Bearer`. The token is stored in the DB as a SHA-256 hash. Logout deletes the session row. | JWT; httpOnly cookie sessions | The kit's smoke test expects a `token` field with Bearer auth. Opaque tokens allow real logout, and sessions in the DB survive redeploys (Lab 5 recommendation). |
 | DD-04 | The client keeps the token in `sessionStorage`. XSS exposure is reduced by React escaping, no `dangerouslySetInnerHTML`, and a strict Content-Security-Policy via `helmet`. | `localStorage`; cookie | The token is cleared when the tab closes. The cookie alternative would require CSRF handling. Trade-off accepted for course scope. |

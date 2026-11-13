@@ -24,7 +24,7 @@ engineering work that requirements depend on but that no single screen owns. Req
 | **F-12** | Item loan history | Full chronological loan history per item for custodians. | FR-19 | F-07 | 3 |
 | **F-13** | Custodian dashboard | Counts of pending, starting today, due today, overdue, in maintenance, each linking to its list. | FR-20 | F-07, F-08, F-09 | 3 |
 | **F-14** | Loan report export | CSV of requests in a date range. | FR-21 | F-07 | 3 |
-| **SR-01** | Data and application foundation | Express app skeleton, Prisma schema and migrations, reproducible idempotent seed, test harness (Vitest, Supertest, Playwright) with an isolated test database, `/api/health` and `/api/ready`. | NFR-06 (handler), supports all FRs | — | 1 |
+| **SR-01** | Data and application foundation | Elysia (Bun) app skeleton, Prisma schema and migrations, reproducible idempotent seed, test harness (Vitest, Supertest, Playwright) with an isolated test database, `/api/health` and `/api/ready`. | NFR-06 (handler), supports all FRs | — | 1 |
 | **SR-02** | Containerised deployment and CI/CD (Lab 5) | Docker image, `.env.example`, CI on every PR as a required check, GCP Cloud Run + Cloud SQL + Secret Manager, deploy pipeline from `main`, commit SHA reported at runtime, login throttling before going public. | NFR-07, NFR-08, NFR-09, NFR-10, NFR-14 | SR-01 | 2 |
 | **SR-03** | Product hardening | Responsive layout pass, accessibility pass, performance check, optional DB exclusion constraint for overlaps. | NFR-11, NFR-12, NFR-13 | All features | 3 |
 

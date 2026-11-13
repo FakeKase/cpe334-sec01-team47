@@ -12,14 +12,14 @@ Requirement IDs refer to [srs.md](srs.md). Feature IDs refer to [features.md](fe
 | Layer | Technology | Responsibility |
 |---|---|---|
 | UI | React 19 + Vite + React Router, TypeScript | Screens, navigation, form validation for fast feedback, display of API errors. Holds the session token in `sessionStorage`. **Enforces no rules authoritatively.** |
-| API / application | Node.js 24 + Express 5, TypeScript, Zod for input validation | Authentication, role and ownership authorization, input validation, **all business rules** (BR-01–14), transactions. |
+| API / application | Bun + Elysia, TypeScript, Zod for input validation. Types are shared with the client through Eden (`treaty<App>`) | Authentication, role and ownership authorization, input validation, **all business rules** (BR-01–14), transactions. |
 | Data access | Prisma ORM + Prisma Migrate | Typed queries, migrations, seed. Raw SQL only for row locks (`SELECT … FOR UPDATE`). |
 | Database | PostgreSQL 16 | Durable storage of users, sessions, categories, items, requests. Uniqueness, foreign keys and check constraints act as a last line of defence. |
 | Tests | Vitest (unit + API), Supertest, React Testing Library, Playwright (E2E) | See [Sprint 1 STS](sprints/sprint-1/sts.md). |
 
-In production, **one container** runs Express. It serves the built React app as static files and the API
+In production, **one container** runs Elysia on Bun. It serves the built React app as static files and the API
 under `/api` on the same origin, so no CORS is needed in production. In development, Vite (`:5173`) proxies
-`/api` to Express (`:3000`). This matches the Lab 5 starter `Dockerfile`.
+`/api` to Elysia (`:3000`). This matches the Lab 5 starter `Dockerfile`.
 
 ### C1.2 Component diagram
 
@@ -28,9 +28,9 @@ flowchart LR
   subgraph Browser
     UI["React SPA<br/>pages · api client · auth context"]
   end
-  subgraph Container["Node.js container (Cloud Run)"]
+  subgraph Container["Bun container (Cloud Run)"]
     STATIC["Static files<br/>(built SPA)"]
-    subgraph API["Express /api"]
+    subgraph API["Elysia /api"]
       MW["Middleware<br/>helmet · json · requireAuth · requireRole"]
       R["Routes<br/>auth · categories · items · requests"]
       S["Services<br/>authService · catalogService · requestService"]
@@ -64,8 +64,8 @@ flowchart LR
 ```
 server/
   src/
-    app.ts              # builds Express app (no listen) – imported by tests
-    index.ts            # listen(PORT); entry point of the kit Dockerfile (`node dist/index.js`)
+    app.ts              # builds Elysia app (no listen) and exports `type App` for Eden
+    index.ts            # listen(PORT); entry point of the kit Dockerfile (`bun src/index.ts`)
     config.ts           # reads + validates env (Zod); fails fast on missing values
     clock.ts            # today() in APP_TIMEZONE; injectable for tests
     middleware/         # requireAuth, requireRole, errorHandler, notFound
@@ -194,14 +194,14 @@ stateDiagram-v2
   a release can migrate before traffic moves (Lab 5 recommendation). The `CHECK` constraint is added by
   editing the generated migration SQL. The Sprint 1 `init` migration omits the columns marked `(S2)` in the
   ER diagram; Sprint 2 adds them in an additive migration.
-- Local setup: `docker compose up -d db`, then `npx prisma migrate dev` (development) or
-  `npx prisma migrate deploy` (CI, Docker, Cloud Run job).
+- Local setup: `docker compose up -d db`, then `bunx prisma migrate dev` (development) or
+  `bunx prisma migrate deploy` (CI, Docker, Cloud Run job).
 - Tests use a separate database (`DATABASE_URL` pointing to `…/inventory_test`). It is migrated once per test
   run, and tables are truncated between API test files.
 
 ### C2.4 Seed data
 
-`npm run prisma:seed` is **idempotent**: it upserts by email, category name and asset tag, so running it
+`bun run prisma:seed` is **idempotent**: it upserts by email, category name and asset tag, so running it
 again changes nothing. The demo booking is created only when `CPE-0201` has no `APPROVED` or `CHECKED_OUT`
 request yet. A rerun (for example the migration job on every deploy) leaves an existing booking and its dates
 unchanged.

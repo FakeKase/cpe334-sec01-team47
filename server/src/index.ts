@@ -5,11 +5,11 @@ import { loadConfig } from "./config"
 
 const config = loadConfig()
 const prisma = new PrismaClient()
-const server = createApp({ prisma }).listen(config.PORT, () => {
-	console.log(`API listening on :${config.PORT}`)
-})
+const app = createApp({ prisma }).listen(config.PORT)
+console.log(`API listening on :${config.PORT}`)
 
 // Cloud Run sends SIGTERM: finish in-flight requests, then close the DB.
-process.on("SIGTERM", () => {
-	server.close(() => void prisma.$disconnect())
+process.on("SIGTERM", async () => {
+	await app.stop()
+	await prisma.$disconnect()
 })

@@ -6,7 +6,7 @@ const schema = z.object({
 	APP_TIMEZONE: z.string().default("Asia/Bangkok"),
 })
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
+export function loadConfig(env: Record<string, string | undefined> = process.env) {
 	const parsed = schema.safeParse(env)
 	if (!parsed.success) {
 		// Name the variables only: values may be secrets (NFR-06).

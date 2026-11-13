@@ -9,7 +9,7 @@ The application code (`client/`, `server/src/`, `server/prisma/`) is not include
 | File | What it does |
 |---|---|
 | `server/Dockerfile`, `client/Dockerfile`, `client/nginx.conf` | Used by `docker-compose.yml` for local runs: one image for the API, one for the web app served by nginx. |
-| `Dockerfile`, `.dockerignore` | Three-stage build. The React app is built and served by the Express API from one container on port 3000, running as the non-root `node` user. |
+| `Dockerfile`, `.dockerignore` | Three-stage build. The React app is built and served by the Elysia (Bun) API from one container on port 3000, running as the non-root `bun` user. |
 | `docker-compose.yml` | Runs PostgreSQL, a migration/seed job, the API (`localhost:3000`) and the web app (`localhost:5173`) locally. |
 | `server/.env.example`, `client/.env.example` | Every environment variable the app reads, with placeholders only. Copy to `.env` locally and never commit `.env`. |
 | `server/docker-entrypoint.sh` | Starts the server and nothing else. Migrations run in a separate Cloud Run job. |

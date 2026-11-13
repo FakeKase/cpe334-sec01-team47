@@ -21,7 +21,7 @@ approves or rejects. The Borrower then sees the persisted decision.
 
 | Feature | Delivers | Depends on |
 |---|---|---|
-| SR-01 | Express app, Prisma schema + migration, idempotent seed, test harness with a test DB, health/ready | — |
+| SR-01 | Elysia app, Prisma schema + migration, idempotent seed, test harness with a test DB, health/ready | — |
 | F-01 | Login / logout / me, `requireAuth`, `requireRole`, error handler | SR-01 |
 | F-02 | Catalog list + filter, item detail, public categories | F-01 |
 | F-03 | Create request with BR-01–BR-05 | F-01, F-02 |

@@ -1,18 +1,26 @@
 import type { PrismaClient } from "@prisma/client"
-import { Router } from "express"
+import { Elysia } from "elysia"
+import { z } from "zod"
 
-export function healthRouter(prisma: PrismaClient) {
-	const router = Router()
-	router.get("/health", (_req, res) => {
-		res.json({ status: "ok" })
-	})
-	router.get("/ready", async (_req, res) => {
-		try {
-			await prisma.$queryRaw`SELECT 1`
-			res.json({ db: "connected" })
-		} catch {
-			res.status(503).json({ db: "unavailable" })
-		}
-	})
-	return router
-}
+export const healthRoutes = (prisma: PrismaClient) =>
+	new Elysia({ name: "health" })
+		.get("/health", () => ({ status: "ok" as const }), {
+			response: z.object({ status: z.literal("ok") }),
+		})
+		.get(
+			"/ready",
+			async ({ status }) => {
+				try {
+					await prisma.$queryRaw`SELECT 1`
+					return { db: "connected" as const }
+				} catch {
+					return status(503, { db: "unavailable" as const })
+				}
+			},
+			{
+				response: {
+					200: z.object({ db: z.literal("connected") }),
+					503: z.object({ db: z.literal("unavailable") }),
+				},
+			}
+		)

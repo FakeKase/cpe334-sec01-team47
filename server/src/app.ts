@@ -1,12 +1,12 @@
 import type { PrismaClient } from "@prisma/client"
-import express from "express"
+import { Elysia } from "elysia"
 
-import { healthRouter } from "./routes/health"
+import { healthRoutes } from "./routes/health"
 
 // No listen() here so tests can import the app (SDS §C1.4).
 export function createApp({ prisma }: { prisma: PrismaClient }) {
-	const app = express()
-	app.use(express.json({ limit: "100kb" }))
-	app.use("/api", healthRouter(prisma))
-	return app
+	return new Elysia({ prefix: "/api" }).use(healthRoutes(prisma))
 }
+
+/** Imported by the client for end-to-end types: `treaty<App>(url)` from @elysiajs/eden. */
+export type App = ReturnType<typeof createApp>
