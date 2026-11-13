@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* Tokens from the Figma file (Foundations). Dark values are read from the design; light values follow the
+   handoff notes (slate scale, near-black primary) and should be checked against the Light screens. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+	--color-bg-page: #f8fafc;
+	--color-bg-surface: #ffffff;
+	--color-bg-inverse: #0f172a;
+	--color-text-primary: #0f172a;
+	--color-text-muted: #64748b;
+	--color-text-inverse: #f8fafc;
+	--color-border-default: #e2e8f0;
+	--color-border-strong: #94a3b8;
+	--color-action-primary-bg: #0f172a;
+	--color-action-primary-text: #f8fafc;
+	--color-focus: #2563eb;
+	--color-error-bg: #fef2f2;
+	--color-error-border: #fecaca;
+	--color-error-text: #b91c1c;
+	--color-info-bg: #eff6ff;
+	--color-info-border: #bfdbfe;
+	--color-info-text: #1d4ed8;
+}
+
+.dark {
+	--color-bg-page: #0f172a;
+	--color-bg-surface: #1e293b;
+	--color-bg-inverse: #f8fafc;
+	--color-text-primary: #f8fafc;
+	--color-text-muted: #94a3b8;
+	--color-text-inverse: #0f172a;
+	--color-border-default: #334155;
+	--color-border-strong: #475569;
+	--color-action-primary-bg: #f8fafc;
+	--color-action-primary-text: #0f172a;
+	--color-focus: #60a5fa;
+	--color-error-bg: #450a0a;
+	--color-error-border: #7f1d1d;
+	--color-error-text: #fecaca;
+	--color-info-bg: #172554;
+	--color-info-border: #1e3a8a;
+	--color-info-text: #bfdbfe;
+}
+
+@theme inline {
+	--font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+	--color-page: var(--color-bg-page);
+	--color-surface: var(--color-bg-surface);
+	--color-inverse: var(--color-bg-inverse);
+	--color-fg: var(--color-text-primary);
+	--color-muted: var(--color-text-muted);
+	--color-on-inverse: var(--color-text-inverse);
+	--color-line: var(--color-border-default);
+	--color-line-strong: var(--color-border-strong);
+	--color-primary: var(--color-action-primary-bg);
+	--color-on-primary: var(--color-action-primary-text);
+	--color-focus: var(--color-focus);
+	--color-error-bg: var(--color-error-bg);
+	--color-error-border: var(--color-error-border);
+	--color-error-fg: var(--color-error-text);
+	--color-info-bg: var(--color-info-bg);
+	--color-info-border: var(--color-info-border);
+	--color-info-fg: var(--color-info-text);
+}
+
+body {
+	background: var(--color-bg-page);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+}
