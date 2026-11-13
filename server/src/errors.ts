@@ -14,3 +14,4 @@ export class AppError extends Error {
 
 export const unauthenticated = () => new AppError("UNAUTHENTICATED", 401, "Authentication required.")
 export const forbidden = () => new AppError("FORBIDDEN", 403, "You are not allowed to do this.")
+export const notFound = () => new AppError("NOT_FOUND", 404, "Not found.")
