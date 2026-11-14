@@ -1,6 +1,6 @@
 # Sprint 1 — Software Test Specification (STS)
 
-**Document version:** 0.2.2 (draft, 2026-11-13)
+**Document version:** 0.2.3 (draft, 2026-11-14)
 Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](F-01-authentication.md) to [F-05](F-05-review-requests.md).
 
 ## 1. Test levels, tools and environment
@@ -116,15 +116,12 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 All 35 Sprint 1 ACs have at least one automated test. **No AC relies on a manual check only.** Manual
 checks (screenshots for Part F) supplement, but do not replace, these tests.
 
-## 4. Results table (fill in at release — Part F)
+## 4. Results table
 
-Record for the tested release commit: command, total/passed/failed/skipped, and per test the actual file and
-test name.
-
-| Test | AC | Test file :: test name | Result | Commit |
-|---|---|---|---|---|
-| TEST-01 | AC-01 | `server/test/api/auth.test.ts` :: … | | |
-| … | | | | |
+The results of a run are recorded per release, not in this file. For the Sprint 1 release they are in Part F,
+section F4.2 of the Deliverable 1 report. That table maps every AC to its planned test, the actual test file and
+name, and the result, and names the tested commit, the command and the pass, fail and skip counts. Each
+release records the same fields.
 
 ## Version history
 
@@ -134,3 +131,4 @@ test name.
 | 0.2 | 2026-11-12 | E2E runs with `SEED_DEMO_REQUESTS=false`; TEST-40 precondition states it. | PR #3 review: the demo booking on `CPE-0201` could make TEST-40 fail with `PERIOD_UNAVAILABLE`. |
 | 0.2.1 | 2026-11-12 | TEST-25 sets the rejected status via Prisma instead of calling the reject endpoint. | PR #3 review: keeps AC-21 testable if F-05 reject slips (plan.md §D5). |
 | 0.2.2 | 2026-11-13 | TEST-20 adds a padded 300-character purpose. | F-03 v0.1.1: the purpose limit applies after trimming. |
+| 0.2.3 | 2026-11-14 | §4 no longer holds an empty results template. It points to the release results table (Part F4.2 of the report). | Deliverable 1 review: an unfilled template was left in the document. |

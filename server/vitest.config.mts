@@ -1,8 +1,5 @@
 import { defineConfig } from "vitest/config"
 
-// Load the test environment before vitest forks its workers.
-process.loadEnvFile("test/.env.test")
-
 export default defineConfig({
 	test: {
 		include: ["test/**/*.test.ts"],

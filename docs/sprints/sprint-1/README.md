@@ -62,7 +62,7 @@ A feature is **done** only when all of the following hold, **with evidence**:
 ### Sprint 1 completion criteria
 
 - [ ] SR-01, F-01 … F-05 meet the Product DoD.
-- [ ] AC-01 – AC-35 → TEST-01 – TEST-41 all pass on the tagged commit. The results table in [sts.md §4](sts.md#4-results-table-fill-in-at-release--part-f) is filled in.
+- [ ] AC-01 – AC-35 → TEST-01 – TEST-41 all pass on the tagged commit. The results table in [sts.md §4](sts.md#4-results-table) is filled in.
 - [ ] TDD evidence (red → green) is retained for at least the BR-03 overlap rule (TEST-22/23) and the ownership rule (TEST-29).
 - [ ] The demo journey (TEST-40), a rule rejection (e.g. TEST-23 `PERIOD_UNAVAILABLE`) and a forbidden operation (TEST-29 / TEST-38) are captured as screenshots for Part F.
 - [ ] Release PR `staging → main` is merged and `v0.1.0` tagged. The README has local setup, env, migrate/seed, build and test commands.
