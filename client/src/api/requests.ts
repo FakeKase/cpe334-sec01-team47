@@ -15,13 +15,13 @@ export type BorrowRequest = {
 	createdAt: string
 }
 
-const neutral = "bg-surface text-muted border-line-strong"
+const neutral = "bg-badge-neutral-bg text-badge-neutral-fg"
 
-// SDS §C3 badge colours. ponytail: CHECKED_OUT (purple) and RETURNED (green) use neutral until Sprint 2 adds their tokens.
+// Figma "Status badge" (SDS §C3 colours). ponytail: CHECKED_OUT (purple) and RETURNED (green) use neutral until Sprint 2 adds their tokens.
 export const requestStatus: Record<RequestStatus, { label: string; tone: string }> = {
 	PENDING: { label: "Pending", tone: neutral },
-	APPROVED: { label: "Approved", tone: "bg-info-bg text-info-fg border-info-border" },
-	REJECTED: { label: "Rejected", tone: "bg-error-bg text-error-fg border-error-border" },
+	APPROVED: { label: "Approved", tone: "bg-badge-info-bg text-info-fg" },
+	REJECTED: { label: "Rejected", tone: "bg-badge-error-bg text-error-fg" },
 	CANCELLED: { label: "Cancelled", tone: neutral },
 	CHECKED_OUT: { label: "Checked out", tone: neutral },
 	RETURNED: { label: "Returned", tone: neutral },

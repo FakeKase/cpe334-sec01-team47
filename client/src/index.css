@@ -9,8 +9,10 @@
 	--color-bg-surface: #ffffff;
 	--color-bg-inverse: #0f172a;
 	--color-text-primary: #0f172a;
+	--color-text-secondary: #475569;
 	--color-text-muted: #64748b;
 	--color-text-inverse: #f8fafc;
+	--color-link: #1d4ed8;
 	--color-border-default: #e2e8f0;
 	--color-border-strong: #94a3b8;
 	--color-action-primary-bg: #0f172a;
@@ -22,6 +24,13 @@
 	--color-info-bg: #eff6ff;
 	--color-info-border: #bfdbfe;
 	--color-info-text: #1d4ed8;
+	--color-success-bg: #f0fdf4;
+	--color-success-border: #15803d;
+	--color-success-icon: #15803d;
+	--color-badge-neutral-bg: #f1f5f9;
+	--color-badge-neutral-text: #334155;
+	--color-badge-info-bg: #dbeafe;
+	--color-badge-error-bg: #fee2e2;
 }
 
 .dark {
@@ -29,8 +38,10 @@
 	--color-bg-surface: #1e293b;
 	--color-bg-inverse: #f8fafc;
 	--color-text-primary: #f8fafc;
+	--color-text-secondary: #cbd5e1;
 	--color-text-muted: #94a3b8;
 	--color-text-inverse: #0f172a;
+	--color-link: #93c5fd;
 	--color-border-default: #334155;
 	--color-border-strong: #475569;
 	--color-action-primary-bg: #f8fafc;
@@ -42,6 +53,13 @@
 	--color-info-bg: #172554;
 	--color-info-border: #1e3a8a;
 	--color-info-text: #bfdbfe;
+	--color-success-bg: #052e16;
+	--color-success-border: #4ade80;
+	--color-success-icon: #4ade80;
+	--color-badge-neutral-bg: #334155;
+	--color-badge-neutral-text: #e2e8f0;
+	--color-badge-info-bg: #1e3a8a;
+	--color-badge-error-bg: #7f1d1d;
 }
 
 @theme inline {
@@ -50,7 +68,9 @@
 	--color-surface: var(--color-bg-surface);
 	--color-inverse: var(--color-bg-inverse);
 	--color-fg: var(--color-text-primary);
+	--color-secondary: var(--color-text-secondary);
 	--color-muted: var(--color-text-muted);
+	--color-link: var(--color-link);
 	--color-on-inverse: var(--color-text-inverse);
 	--color-line: var(--color-border-default);
 	--color-line-strong: var(--color-border-strong);
@@ -63,6 +83,13 @@
 	--color-info-bg: var(--color-info-bg);
 	--color-info-border: var(--color-info-border);
 	--color-info-fg: var(--color-info-text);
+	--color-success-bg: var(--color-success-bg);
+	--color-success-border: var(--color-success-border);
+	--color-success-icon: var(--color-success-icon);
+	--color-badge-neutral-bg: var(--color-badge-neutral-bg);
+	--color-badge-neutral-fg: var(--color-badge-neutral-text);
+	--color-badge-info-bg: var(--color-badge-info-bg);
+	--color-badge-error-bg: var(--color-badge-error-bg);
 }
 
 body {

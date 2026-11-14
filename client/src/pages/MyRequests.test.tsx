@@ -47,6 +47,7 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		})
 		renderApp("/my-requests")
 
+		expect(await screen.findByText("Track your borrow requests and their status.")).toBeInTheDocument()
 		expect(await screen.findByText("Loading your requests…")).toBeInTheDocument()
 		const rows = await screen.findAllByRole("listitem")
 		expect(rows).toHaveLength(2)
@@ -64,7 +65,8 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		renderApp("/my-requests")
 
 		expect(await screen.findByText("You have no requests yet.")).toBeInTheDocument()
-		expect(screen.getByRole("link", { name: "Browse the catalog" })).toHaveAttribute("href", "/items")
+		expect(screen.getByText("Browse the catalog and request equipment for the dates you need.")).toBeInTheDocument()
+		expect(screen.getByRole("link", { name: "Go to the catalog" })).toHaveAttribute("href", "/items")
 	})
 
 	it("(b) a rejected request shows the Rejected badge and the reason", async () => {
@@ -81,7 +83,7 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		signIn([pending])
 		renderApp({ pathname: "/my-requests", state: { submitted: true } })
 
-		expect(await screen.findByText("Your request was submitted.")).toBeInTheDocument()
+		expect(await screen.findByText("Request submitted. Waiting for approval.")).toBeInTheDocument()
 	})
 
 	it("shows no banner on a normal visit", async () => {
@@ -89,7 +91,7 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		renderApp("/my-requests")
 
 		await screen.findByRole("listitem")
-		expect(screen.queryByText("Your request was submitted.")).not.toBeInTheDocument()
+		expect(screen.queryByText("Request submitted. Waiting for approval.")).not.toBeInTheDocument()
 	})
 
 	it("shows the error state on a server error, and Retry reloads", async () => {
