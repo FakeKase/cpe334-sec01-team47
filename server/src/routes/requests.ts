@@ -26,7 +26,7 @@ export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 				set.status = 201
 				return requests.create(user.id, body)
 			},
-			{ body: newRequestBody, beforeHandle: requireRole("BORROWER") }
+			{ body: newRequestBody, transform: requireRole("BORROWER") }
 		)
 		.get("/requests", ({ query, user }) => requests.list(user, query.status), { query: listQuery })
 		.get("/requests/:id", ({ params, user }) => requests.get(user, params.id))

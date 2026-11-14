@@ -11,7 +11,8 @@ export const requireAuth = (auth: AuthService) =>
 		auth.authenticate(request.headers.get("authorization"))
 	)
 
-/** `beforeHandle` guard: 403 FORBIDDEN unless the user has one of `roles` (BR-13). */
+/** Route `transform` guard: 403 FORBIDDEN unless the user has one of `roles` (BR-13). `transform` runs after
+ * `requireAuth`'s derive and before body validation, so a wrong role never sees a 400 with field names. */
 export const requireRole =
 	(...roles: Role[]) =>
 	({ user }: { user: { role: Role } }) => {
