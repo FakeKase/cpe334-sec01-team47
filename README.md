@@ -8,7 +8,7 @@ The application code (`client/`, `server/src/`, `server/prisma/`) is not include
 
 YuemPuenMa is an equipment borrowing system: Borrowers request items for a period, a Custodian approves or rejects. Specification and test documents are in `docs/`.
 
-**Requirements:** [Bun](https://bun.sh) 1.3 or newer, [Docker](https://www.docker.com) (for PostgreSQL 16), and Chrome (only for the Playwright spec).
+**Requirements:** [Bun](https://bun.sh) 1.3 or newer, [Docker](https://www.docker.com) (for PostgreSQL 16), and, for the end-to-end spec only, Playwright's Chromium (one-time: `bunx playwright install chromium`).
 
 1. **Install.** `bun install` at the repository root, then in `server/` and in `client/`.
 2. **Database.** Start PostgreSQL with `docker compose up -d db`. It listens on `localhost:5432`.
@@ -17,9 +17,9 @@ YuemPuenMa is an equipment borrowing system: Borrowers request items for a perio
 5. **Run.** In `server/`: `bun run dev` (API on `:3000`). In `client/`: `bun run dev` (UI on `:5173`, which proxies `/api`). Or run everything with `docker compose up --build`.
 6. **Build.** `bun run build` in `client/` (type-checks, then builds). `bun run typecheck` in `server/` and `client/`.
 7. **Test.**
-   - API and unit tests need their own database, because every test file resets the tables. Create an empty database named `inventory_test` (for example `docker exec <db container> psql -U yuempuenma -d postgres -c "CREATE DATABASE inventory_test"`). The connection string is in `server/test/.env.test`; set `DATABASE_URL` in the shell to use another host or port. The global setup refuses to run against a database whose name does not contain `_test`. Then run `bun run test` in `server/`.
+   - API and unit tests need their own database, because every test file resets the tables. Create an empty database named `inventory_test` (for example `docker exec yuempuenma-db psql -U yuempuenma -d postgres -c "CREATE DATABASE inventory_test"`). The `test` script loads `server/test/.env.test` (`bun --env-file=test/.env.test`), which wins over `server/.env`, so the tests never touch your development database. To use another host or port, export `DATABASE_URL` in the shell before running; an exported value wins. The global setup refuses to run against a database whose name does not contain `_test`. Then run `bun run test` in `server/`.
    - Component tests: `bun run test` in `client/`.
-   - End-to-end test (needs the API and the client running on a freshly seeded database with `SEED_DEMO_REQUESTS=false`): `bunx playwright test` at the repository root. Set `E2E_BASE_URL` to use another address.
+   - End-to-end test (needs the API and the client running on a freshly seeded database with `SEED_DEMO_REQUESTS=false`): `bunx playwright test` at the repository root. The spec logs in with the seeded accounts, so if you seeded with your own passwords, export the same `ADMIN_PASSWORD` and `DEMO_USER_PASSWORD` in the shell first (the defaults are the `docker-compose.yml` values). Set `E2E_BASE_URL` to use another address.
 
 ## What is in this folder
 

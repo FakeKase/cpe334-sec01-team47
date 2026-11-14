@@ -5,7 +5,7 @@
 		"dev": "bun --watch src/index.ts",
 		"start": "bun src/index.ts",
 		"typecheck": "tsc --noEmit",
-		"test": "bun --bun vitest run",
+		"test": "bun --env-file=test/.env.test --bun vitest run",
 		"prisma:seed": "bun prisma/seed.ts"
 	},
 	"dependencies": {
