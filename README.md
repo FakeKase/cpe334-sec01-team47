@@ -4,6 +4,23 @@ These files take YuemPuenMa from a laptop to Google Cloud Run with a CI/CD pipel
 
 The application code (`client/`, `server/src/`, `server/prisma/`) is not included. Every file here assumes a Node.js 24 frontend and API in one container with PostgreSQL and Prisma. Lines that depend on that are listed under "What to change".
 
+## Sprint 1: run, seed and test the app locally
+
+YuemPuenMa is an equipment borrowing system: Borrowers request items for a period, a Custodian approves or rejects. Specification and test documents are in `docs/`.
+
+**Requirements:** [Bun](https://bun.sh) 1.3 or newer, [Docker](https://www.docker.com) (for PostgreSQL 16), and Chrome (only for the Playwright spec).
+
+1. **Install.** `bun install` at the repository root, then in `server/` and in `client/`.
+2. **Database.** Start PostgreSQL with `docker compose up -d db`. It listens on `localhost:5432`.
+3. **Environment.** Copy `server/.env.example` to `server/.env` and set the values. `DATABASE_URL`, `ADMIN_PASSWORD` (the Custodian's password) and `DEMO_USER_PASSWORD` (the Borrowers' password) are required; the example file explains every variable. Use synthetic values. `.env` is git-ignored and must never be committed. `client/.env.example` is only needed when the API runs on another origin.
+4. **Migrate and seed.** In `server/`: `bunx prisma migrate deploy`, then `bun run prisma:seed`. The seed creates 4 categories, 12 items (one `MAINTENANCE`, one `RETIRED`), the Custodian `custodian@example.test` and, when `SEED_DEMO_DATA=true`, the Borrowers `borrower1@example.test` and `borrower2@example.test`. `SEED_DEMO_REQUESTS=true` adds one approved demo booking on `CPE-0201`.
+5. **Run.** In `server/`: `bun run dev` (API on `:3000`). In `client/`: `bun run dev` (UI on `:5173`, which proxies `/api`). Or run everything with `docker compose up --build`.
+6. **Build.** `bun run build` in `client/` (type-checks, then builds). `bun run typecheck` in `server/` and `client/`.
+7. **Test.**
+   - API and unit tests need their own database, because every test file resets the tables. Create an empty database named `inventory_test` (for example `docker exec <db container> psql -U yuempuenma -d postgres -c "CREATE DATABASE inventory_test"`). The connection string is in `server/test/.env.test`; set `DATABASE_URL` in the shell to use another host or port. The global setup refuses to run against a database whose name does not contain `_test`. Then run `bun run test` in `server/`.
+   - Component tests: `bun run test` in `client/`.
+   - End-to-end test (needs the API and the client running on a freshly seeded database with `SEED_DEMO_REQUESTS=false`): `bunx playwright test` at the repository root. Set `E2E_BASE_URL` to use another address.
+
 ## What is in this folder
 
 | File | What it does |
