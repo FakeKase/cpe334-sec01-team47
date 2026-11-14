@@ -11,6 +11,7 @@ export type Credentials = { email: string; password: string }
 
 export const credentials = {
 	BORROWER: { email: "borrower1@example.test", password: process.env.DEMO_USER_PASSWORD! },
+	BORROWER2: { email: "borrower2@example.test", password: process.env.DEMO_USER_PASSWORD! },
 	CUSTODIAN: { email: "custodian@example.test", password: process.env.ADMIN_PASSWORD! },
 } satisfies Record<string, Credentials>
 
