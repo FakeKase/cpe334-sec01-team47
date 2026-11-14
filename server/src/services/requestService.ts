@@ -4,7 +4,7 @@ import { type Clock, today } from "../clock"
 import { validateLoanPeriod } from "../domain/loanPeriod"
 import { periodsOverlap } from "../domain/overlap"
 import { AppError, notFound } from "../errors"
-import { UUID } from "./catalogService"
+import { isUuid } from "../uuid"
 import { requestResourceSelect, toRequestResource, ymd } from "./requestResource"
 
 /** BR-05 limit (SRS Q-04). */
@@ -74,12 +74,13 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 			return toRequestResource(row)
 		},
 
-		/** FR-07. Newest first, except the Custodian's pending queue, which is oldest first (F-05 §4). */
+		/** FR-07. Newest first, except the Custodian's pending queue, which is oldest first (F-05 §4).
+		 * Same createdAt → id ascending, so the order is stable. ponytail: no limit, pagination is a later sprint. */
 		async list(user: Caller, status?: RequestStatus) {
 			const oldestFirst = user.role === "CUSTODIAN" && status === "PENDING"
 			const rows = await prisma.borrowRequest.findMany({
 				where: { ...scope(user), status },
-				orderBy: { createdAt: oldestFirst ? "asc" : "desc" },
+				orderBy: [{ createdAt: oldestFirst ? "asc" : "desc" }, { id: "asc" }],
 				select: requestResourceSelect,
 			})
 			return rows.map(toRequestResource)
@@ -87,7 +88,7 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 
 		/** Another Borrower's request is 404, not 403, so its existence is not revealed (DD-08). */
 		async get(user: Caller, id: string) {
-			const row = UUID.test(id)
+			const row = isUuid(id)
 				? await prisma.borrowRequest.findFirst({ where: { id, ...scope(user) }, select: requestResourceSelect })
 				: null
 			if (!row) throw notFound()

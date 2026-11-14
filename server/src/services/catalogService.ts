@@ -2,9 +2,9 @@ import type { PrismaClient, Role } from "@prisma/client"
 
 import { type Clock, today } from "../clock"
 import { notFound } from "../errors"
+import { isUuid } from "../uuid"
 
 const OCCUPYING = ["APPROVED", "CHECKED_OUT"] as const
-export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
 export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {
@@ -39,7 +39,7 @@ export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClie
 		},
 
 		async getItem(id: string, role: Role) {
-			const item = UUID.test(id)
+			const item = isUuid(id)
 				? await prisma.item.findUnique({
 						where: { id },
 						select: {
