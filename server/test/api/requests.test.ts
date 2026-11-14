@@ -1,13 +1,14 @@
-import type { RequestStatus } from "@prisma/client"
 import request from "supertest"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { loginAs, startTestApp } from "../helpers/app"
-import { prisma, resetDb } from "../helpers/db"
+import { borrower1, borrower2, insertRequest, itemId, prisma, resetDb } from "../helpers/db"
 
 const app = startTestApp()
 const api = () => request(app.url)
 const as = (token: string) => ({ Authorization: `Bearer ${token}` })
+
+const count = () => prisma.borrowRequest.count()
 
 beforeAll(resetDb)
 beforeEach(resetDb)
@@ -15,34 +16,6 @@ afterAll(async () => {
 	await app.stop()
 	await prisma.$disconnect()
 })
-
-const itemId = async (assetTag: string) => (await prisma.item.findUniqueOrThrow({ where: { assetTag } })).id
-const userId = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email } })).id
-const borrower1 = () => userId("borrower1@example.test")
-const borrower2 = () => userId("borrower2@example.test")
-const count = () => prisma.borrowRequest.count()
-
-/** Inserts a request directly, bypassing the API (fixture). Dates are inclusive YYYY-MM-DD. */
-async function insertRequest(
-	assetTag: string,
-	borrowerId: string,
-	startDate: string,
-	dueDate: string,
-	status: RequestStatus,
-	extra: { id?: string; createdAt?: Date; rejectionReason?: string } = {}
-) {
-	return prisma.borrowRequest.create({
-		data: {
-			itemId: await itemId(assetTag),
-			borrowerId,
-			startDate: new Date(startDate),
-			dueDate: new Date(dueDate),
-			purpose: "fixture",
-			status,
-			...extra,
-		},
-	})
-}
 
 type Body = Record<string, unknown>
 const post = (token: string, body: Body) => api().post("/api/requests").set(as(token)).send(body)
@@ -303,6 +276,13 @@ describe("permissions (TEST-26, AC-22)", () => {
 		expect(res.status).toBe(403)
 		expect(res.body.error.code).toBe("FORBIDDEN")
 		expect(await count()).toBe(0)
+	})
+
+	it("a Custodian with an invalid body still gets 403, not 400", async () => {
+		const token = await loginAs(app.url, "CUSTODIAN")
+		const res = await post(token, { purpose: "" })
+		expect(res.status).toBe(403)
+		expect(res.body.error.code).toBe("FORBIDDEN")
 	})
 
 	it("an anonymous caller gets 401, even with an invalid body", async () => {

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, type RequestStatus } from "@prisma/client"
 
 import { seed } from "../../prisma/seedData"
 
@@ -20,4 +20,31 @@ export const fixtureOptions = {
 export async function resetDb() {
 	await prisma.$executeRaw`TRUNCATE "BorrowRequest", "Session", "Item", "Category", "User" RESTART IDENTITY CASCADE`
 	await seed(prisma, fixtureOptions)
+}
+
+export const itemId = async (assetTag: string) => (await prisma.item.findUniqueOrThrow({ where: { assetTag } })).id
+export const userId = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email } })).id
+export const borrower1 = () => userId("borrower1@example.test")
+export const borrower2 = () => userId("borrower2@example.test")
+
+/** Inserts a request directly, bypassing the API (fixture). Dates are inclusive YYYY-MM-DD. */
+export async function insertRequest(
+	assetTag: string,
+	borrowerId: string,
+	startDate: string,
+	dueDate: string,
+	status: RequestStatus,
+	extra: { id?: string; createdAt?: Date; rejectionReason?: string } = {}
+) {
+	return prisma.borrowRequest.create({
+		data: {
+			itemId: await itemId(assetTag),
+			borrowerId,
+			startDate: new Date(startDate),
+			dueDate: new Date(dueDate),
+			purpose: "fixture",
+			status,
+			...extra,
+		},
+	})
 }
