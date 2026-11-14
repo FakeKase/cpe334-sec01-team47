@@ -29,7 +29,7 @@ async function insertRequest(
 	startDate: string,
 	dueDate: string,
 	status: RequestStatus,
-	extra: { createdAt?: Date; rejectionReason?: string } = {}
+	extra: { id?: string; createdAt?: Date; rejectionReason?: string } = {}
 ) {
 	return prisma.borrowRequest.create({
 		data: {
@@ -376,6 +376,21 @@ describe("GET /api/requests lists only the Borrower's own requests, newest first
 		const res = await api().get("/api/requests").set(as(token))
 		expect(res.status).toBe(200)
 		expect(res.body).toEqual([])
+	})
+
+	it("breaks a createdAt tie by id ascending", async () => {
+		const b1 = await borrower1()
+		const createdAt = new Date("2026-11-10T03:00:00Z")
+		const high = "ffffffff-0000-4000-8000-000000000000"
+		const low = "00000000-0000-4000-8000-000000000000"
+		// Inserted high id first, so heap order alone would put it first.
+		await insertRequest("CPE-0201", b1, "2026-11-20", "2026-11-22", "PENDING", { id: high, createdAt })
+		await insertRequest("CPE-0202", b1, "2026-11-20", "2026-11-22", "PENDING", { id: low, createdAt })
+		const token = await loginAs(app.url, "BORROWER")
+
+		const res = await api().get("/api/requests").set(as(token))
+
+		expect(ids(res)).toEqual([low, high])
 	})
 
 	it("400 VALIDATION_ERROR for a status outside the six values", async () => {

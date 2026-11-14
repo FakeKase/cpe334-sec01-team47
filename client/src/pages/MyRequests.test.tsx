@@ -1,7 +1,10 @@
-import { screen, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { delay, http, HttpResponse } from "msw"
+import { createMemoryRouter, RouterProvider } from "react-router"
 
+import { App } from "../App"
+import { AuthProvider } from "../auth/AuthContext"
 import { borrower, renderApp } from "../test/render"
 import { server } from "../test/server"
 
@@ -47,8 +50,8 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		})
 		renderApp("/my-requests")
 
-		expect(await screen.findByText("Track your borrow requests and their status.")).toBeInTheDocument()
 		expect(await screen.findByText("Loading your requests…")).toBeInTheDocument()
+		expect(screen.getByText("Track your borrow requests and their status.")).toBeInTheDocument()
 		const rows = await screen.findAllByRole("listitem")
 		expect(rows).toHaveLength(2)
 		expect(within(rows[0]).getByText("Rigol DS1054Z oscilloscope")).toBeInTheDocument()
@@ -84,6 +87,37 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		renderApp({ pathname: "/my-requests", state: { submitted: true } })
 
 		expect(await screen.findByText("Request submitted. Waiting for approval.")).toBeInTheDocument()
+	})
+
+	it("clears the banner flag from history, so Back or a reload does not show it again", async () => {
+		signIn([pending])
+		const router = createMemoryRouter(
+			[
+				{
+					path: "*",
+					element: (
+						<AuthProvider>
+							<App />
+						</AuthProvider>
+					),
+				},
+			],
+			{ initialEntries: [{ pathname: "/my-requests", state: { submitted: true } }] }
+		)
+		server.use(
+			http.get("/api/items", () => HttpResponse.json([])),
+			http.get("/api/categories", () => HttpResponse.json([]))
+		)
+		render(<RouterProvider router={router} />)
+
+		expect(await screen.findByText("Request submitted. Waiting for approval.")).toBeInTheDocument()
+		await waitFor(() => expect(router.state.location.state).toBeNull())
+		expect(screen.getByText("Request submitted. Waiting for approval.")).toBeInTheDocument()
+
+		await act(() => router.navigate("/items"))
+		await act(() => router.navigate(-1))
+		await screen.findByRole("listitem")
+		expect(screen.queryByText("Request submitted. Waiting for approval.")).not.toBeInTheDocument()
 	})
 
 	it("shows no banner on a normal visit", async () => {
