@@ -28,17 +28,23 @@ export const requestStatus: Record<RequestStatus, { label: string; tone: string 
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const YMD = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 const dayMonth = (ymd: string) => `${Number(ymd.slice(8, 10))} ${MONTHS[Number(ymd.slice(5, 7)) - 1]}`
 
-/** "2026-11-20" → "20 Nov 2026". */
-export const formatDate = (ymd: string) => `${dayMonth(ymd)} ${ymd.slice(0, 4)}`
+/** "2026-11-20" → "20 Nov 2026". A malformed value is shown as it is. */
+export const formatDate = (ymd: string) => (YMD.test(ymd) ? `${dayMonth(ymd)} ${ymd.slice(0, 4)}` : ymd)
 
 /** "20 Nov – 22 Nov 2026", or "30 Dec 2026 – 2 Jan 2027" across a year. */
 export const formatPeriod = (start: string, due: string) =>
-	start.slice(0, 4) === due.slice(0, 4)
+	YMD.test(start) && YMD.test(due) && start.slice(0, 4) === due.slice(0, 4)
 		? `${dayMonth(start)} – ${formatDate(due)}`
 		: `${formatDate(start)} – ${formatDate(due)}`
 
-/** The calendar day of a timestamp in the app's time zone (APP_TIMEZONE). */
-export const formatTimestampDate = (iso: string) =>
-	formatDate(new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }))
+/** Must match the server's APP_TIMEZONE, which decides "today" for BR-01. */
+const timeZone = import.meta.env.VITE_APP_TIMEZONE || "Asia/Bangkok"
+
+/** The calendar day of a timestamp in `timeZone`. */
+export const formatTimestampDate = (iso: string) => {
+	const date = new Date(iso)
+	return Number.isNaN(date.getTime()) ? iso : formatDate(date.toLocaleDateString("en-CA", { timeZone }))
+}

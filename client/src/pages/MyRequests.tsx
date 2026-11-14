@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router"
 
 import { type BorrowRequest, formatPeriod, formatTimestampDate, requestStatus } from "../api/requests"
 import { useApi } from "../api/useApi"
@@ -35,8 +36,14 @@ function RequestRow({ r }: { r: BorrowRequest }) {
 /** F-04: the Borrower's own requests, newest first (the server applies the scope and the order). */
 export function MyRequests() {
 	const { state, retry } = useApi<BorrowRequest[]>("/requests")
-	// F-03 navigates here with `{ state: { submitted: true } }` after a successful submit.
-	const submitted = (useLocation().state as { submitted?: boolean } | null)?.submitted
+	// F-03 navigates here with `{ state: { submitted: true } }` after a successful submit. The flag is read once and
+	// then cleared from history, so Back or a reload does not show the banner again.
+	const location = useLocation()
+	const navigate = useNavigate()
+	const [submitted] = useState(() => (location.state as { submitted?: boolean } | null)?.submitted === true)
+	useEffect(() => {
+		if (location.state) navigate(location.pathname, { replace: true, state: null })
+	}, [location.state, location.pathname, navigate])
 
 	return (
 		<div>

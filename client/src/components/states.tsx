@@ -62,7 +62,8 @@ export function Alert({ kind, children }: { kind: keyof typeof alertTone; childr
 					<path d="m8.5 12 2.5 2.5 4.5-5" />
 				</svg>
 			)}
-			{children}
+			{/* One flex item, so inline links or bold text inside the message stay inline. */}
+			<div className="min-w-0">{children}</div>
 		</div>
 	)
 }
