@@ -3,6 +3,7 @@ import type { ItemStatus, Prisma, PrismaClient, RequestStatus, Role } from "@pri
 import { type Clock, today } from "../clock"
 import { validateLoanPeriod } from "../domain/loanPeriod"
 import { periodsOverlap } from "../domain/overlap"
+import { canTransition } from "../domain/transitions"
 import { AppError, notFound } from "../errors"
 import { isUuid } from "../uuid"
 import { requestResourceSelect, toRequestResource, ymd } from "./requestResource"
@@ -11,7 +12,7 @@ import { requestResourceSelect, toRequestResource, ymd } from "./requestResource
 export const MAX_ACTIVE_REQUESTS = 3
 
 const ACTIVE = ["PENDING", "APPROVED", "CHECKED_OUT"] as const
-const OCCUPYING: readonly string[] = ["APPROVED", "CHECKED_OUT"]
+const OCCUPYING: RequestStatus[] = ["APPROVED", "CHECKED_OUT"]
 
 export type NewRequest = { itemId: string; startDate: string; dueDate: string; purpose: string }
 
@@ -21,7 +22,31 @@ type Caller = { id: string; role: Role }
 const scope = (user: Caller): Prisma.BorrowRequestWhereInput =>
 	user.role === "BORROWER" ? { borrowerId: user.id } : {}
 
+const invalidTransition = (message = "Only pending requests can be approved or rejected.") =>
+	new AppError("INVALID_TRANSITION", 409, message)
+
+type Decision = { status: "APPROVED" } | { status: "REJECTED"; rejectionReason: string }
+
+/** Guarded write: 0 rows updated means another decision got there first (F-05 §1 step 2.4). */
+async function decide(db: Prisma.TransactionClient, id: string, decidedById: string, decidedAt: Date, d: Decision) {
+	const { count } = await db.borrowRequest.updateMany({
+		where: { id, status: "PENDING" },
+		data: { ...d, decidedById, decidedAt },
+	})
+	if (count === 0) throw invalidTransition()
+	return toRequestResource(await db.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect }))
+}
+
 export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {
+	/** Custodian lookup for approve/reject: no scope, 404 for a malformed or unknown id. */
+	async function find(id: string) {
+		const row = isUuid(id)
+			? await prisma.borrowRequest.findUnique({ where: { id }, select: { itemId: true, status: true } })
+			: null
+		if (!row) throw notFound()
+		return row
+	}
+
 	return {
 		/** FR-06. `input` is already schema-valid and `purpose` trimmed; the owner is always `borrowerId`. */
 		async create(borrowerId: string, input: NewRequest) {
@@ -84,6 +109,45 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				select: requestResourceSelect,
 			})
 			return rows.map(toRequestResource)
+		},
+
+		/** FR-08. The item row lock serialises approvals of one item, so two overlapping approvals cannot both pass
+		 * BR-03 (NFR-05). Checks run in contract order: status, period ended, BR-02, BR-03. */
+		async approve(custodianId: string, id: string) {
+			const { itemId } = await find(id)
+			return prisma.$transaction(async (tx) => {
+				const [item] = await tx.$queryRaw<{ status: ItemStatus }[]>`
+					SELECT status FROM "Item" WHERE id = ${itemId}::uuid FOR UPDATE`
+				const r = await tx.borrowRequest.findUniqueOrThrow({
+					where: { id },
+					select: { status: true, startDate: true, dueDate: true },
+				})
+				if (!canTransition(r.status, "APPROVED")) throw invalidTransition()
+				const [start, due] = [ymd(r.startDate), ymd(r.dueDate)]
+				if (due < today(clock, timeZone)) throw invalidTransition("This request's period has already ended.")
+				if (item!.status !== "ACTIVE")
+					throw new AppError(
+						"ITEM_NOT_AVAILABLE",
+						409,
+						"This item is not available, so the request cannot be approved."
+					)
+
+				const booked = await tx.borrowRequest.findMany({
+					where: { itemId, id: { not: id }, status: { in: OCCUPYING } },
+					select: { startDate: true, dueDate: true },
+				})
+				if (booked.some((b) => periodsOverlap(start, due, ymd(b.startDate), ymd(b.dueDate))))
+					throw new AppError("PERIOD_UNAVAILABLE", 409, "This item is already booked for part of that period.")
+
+				return decide(tx, id, custodianId, clock(), { status: "APPROVED" })
+			})
+		},
+
+		/** FR-09. `reason` is already trimmed and 1-500 characters (BR-07). */
+		async reject(custodianId: string, id: string, reason: string) {
+			const { status } = await find(id)
+			if (!canTransition(status, "REJECTED")) throw invalidTransition()
+			return decide(prisma, id, custodianId, clock(), { status: "REJECTED", rejectionReason: reason })
 		},
 
 		/** Another Borrower's request is 404, not 403, so its existence is not revealed (DD-08). */
