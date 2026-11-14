@@ -1,3 +1,4 @@
+import { RequestStatus } from "@prisma/client"
 import { Elysia } from "elysia"
 import { z } from "zod"
 
@@ -13,12 +14,19 @@ const newRequestBody = z.object({
 	purpose: z.string().trim().min(1, "Purpose is required.").max(300, "Purpose can be at most 300 characters."),
 })
 
+// Unknown keys such as borrowerId are stripped (F-04 contract §2).
+const listQuery = z.object({ status: z.enum(RequestStatus).optional() })
+
 export const requestRoutes = (auth: AuthService, requests: RequestService) =>
-	new Elysia().use(requireAuth(auth)).post(
-		"/requests",
-		async ({ body, user, set }) => {
-			set.status = 201
-			return requests.create(user.id, body)
-		},
-		{ body: newRequestBody, beforeHandle: requireRole("BORROWER") }
-	)
+	new Elysia()
+		.use(requireAuth(auth))
+		.post(
+			"/requests",
+			async ({ body, user, set }) => {
+				set.status = 201
+				return requests.create(user.id, body)
+			},
+			{ body: newRequestBody, beforeHandle: requireRole("BORROWER") }
+		)
+		.get("/requests", ({ query, user }) => requests.list(user, query.status), { query: listQuery })
+		.get("/requests/:id", ({ params, user }) => requests.get(user, params.id))

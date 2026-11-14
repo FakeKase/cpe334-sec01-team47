@@ -4,7 +4,7 @@ import { type Clock, today } from "../clock"
 import { notFound } from "../errors"
 
 const OCCUPYING = ["APPROVED", "CHECKED_OUT"] as const
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
 export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {

@@ -1,9 +1,10 @@
-import type { ItemStatus, PrismaClient } from "@prisma/client"
+import type { ItemStatus, Prisma, PrismaClient, RequestStatus, Role } from "@prisma/client"
 
 import { type Clock, today } from "../clock"
 import { validateLoanPeriod } from "../domain/loanPeriod"
 import { periodsOverlap } from "../domain/overlap"
 import { AppError, notFound } from "../errors"
+import { UUID } from "./catalogService"
 import { requestResourceSelect, toRequestResource, ymd } from "./requestResource"
 
 /** BR-05 limit (SRS Q-04). */
@@ -13,6 +14,12 @@ const ACTIVE = ["PENDING", "APPROVED", "CHECKED_OUT"] as const
 const OCCUPYING: readonly string[] = ["APPROVED", "CHECKED_OUT"]
 
 export type NewRequest = { itemId: string; startDate: string; dueDate: string; purpose: string }
+
+type Caller = { id: string; role: Role }
+
+/** Role scope shared by F-04 and F-05: a Borrower sees only their own requests, a Custodian sees all. */
+const scope = (user: Caller): Prisma.BorrowRequestWhereInput =>
+	user.role === "BORROWER" ? { borrowerId: user.id } : {}
 
 export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {
 	return {
@@ -64,6 +71,26 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 					select: requestResourceSelect,
 				})
 			})
+			return toRequestResource(row)
+		},
+
+		/** FR-07. Newest first, except the Custodian's pending queue, which is oldest first (F-05 §4). */
+		async list(user: Caller, status?: RequestStatus) {
+			const oldestFirst = user.role === "CUSTODIAN" && status === "PENDING"
+			const rows = await prisma.borrowRequest.findMany({
+				where: { ...scope(user), status },
+				orderBy: { createdAt: oldestFirst ? "asc" : "desc" },
+				select: requestResourceSelect,
+			})
+			return rows.map(toRequestResource)
+		},
+
+		/** Another Borrower's request is 404, not 403, so its existence is not revealed (DD-08). */
+		async get(user: Caller, id: string) {
+			const row = UUID.test(id)
+				? await prisma.borrowRequest.findFirst({ where: { id, ...scope(user) }, select: requestResourceSelect })
+				: null
+			if (!row) throw notFound()
 			return toRequestResource(row)
 		},
 	}
