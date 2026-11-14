@@ -6,6 +6,7 @@ import { Header } from "./components/Header"
 import { Catalog } from "./pages/Catalog"
 import { ItemDetail } from "./pages/ItemDetail"
 import { Login } from "./pages/Login"
+import { MyRequests } from "./pages/MyRequests"
 import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/SystemPages"
 
@@ -35,7 +36,7 @@ export function App() {
 					<Route path="/items" element={<Catalog />} />
 					<Route path="/items/:id" element={<ItemDetail />} />
 					<Route element={<RequireRole allow="BORROWER" />}>
-						<Route path="/my-requests" element={<Placeholder title="My requests" />} />
+						<Route path="/my-requests" element={<MyRequests />} />
 					</Route>
 					<Route element={<RequireRole allow="CUSTODIAN" />}>
 						<Route path="/requests" element={<Placeholder title="Requests" />} />

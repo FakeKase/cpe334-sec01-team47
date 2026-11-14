@@ -28,7 +28,8 @@ async function insertRequest(
 	borrowerId: string,
 	startDate: string,
 	dueDate: string,
-	status: RequestStatus
+	status: RequestStatus,
+	extra: { id?: string; createdAt?: Date; rejectionReason?: string } = {}
 ) {
 	return prisma.borrowRequest.create({
 		data: {
@@ -38,6 +39,7 @@ async function insertRequest(
 			dueDate: new Date(dueDate),
 			purpose: "fixture",
 			status,
+			...extra,
 		},
 	})
 }
@@ -308,5 +310,160 @@ describe("permissions (TEST-26, AC-22)", () => {
 		expect(res.status).toBe(401)
 		expect(res.body.error.code).toBe("UNAUTHENTICATED")
 		expect(await count()).toBe(0)
+	})
+})
+
+describe("GET /api/requests lists only the Borrower's own requests, newest first (TEST-28, AC-24)", () => {
+	const ids = (res: { body: { id: string }[] }) => res.body.map((r) => r.id)
+
+	async function fixture() {
+		const b1 = await borrower1()
+		const r1 = await insertRequest("CPE-0201", b1, "2026-11-20", "2026-11-22", "PENDING", {
+			createdAt: new Date("2026-11-10T03:00:00Z"),
+		})
+		const r2 = await insertRequest("CPE-0202", b1, "2026-11-20", "2026-11-22", "REJECTED", {
+			createdAt: new Date("2026-11-11T03:00:00Z"),
+			rejectionReason: "Exam week",
+		})
+		const r3 = await insertRequest("CPE-0203", await borrower2(), "2026-11-20", "2026-11-22", "PENDING", {
+			createdAt: new Date("2026-11-12T03:00:00Z"),
+		})
+		return { r1, r2, r3 }
+	}
+
+	it("returns [R2, R1] with R2's rejectionReason; R3 never appears", async () => {
+		const { r1, r2 } = await fixture()
+		const token = await loginAs(app.url, "BORROWER")
+
+		const res = await api().get("/api/requests").set(as(token))
+
+		expect(res.status).toBe(200)
+		expect(ids(res)).toEqual([r2.id, r1.id])
+		expect(res.body[0]).toMatchObject({
+			status: "REJECTED",
+			rejectionReason: "Exam week",
+			item: { assetTag: "CPE-0202" },
+			borrower: { displayName: "Borrower One" },
+			startDate: "2026-11-20",
+			dueDate: "2026-11-22",
+		})
+	})
+
+	it("?status=PENDING returns only the Borrower's pending request", async () => {
+		const { r1 } = await fixture()
+		const token = await loginAs(app.url, "BORROWER")
+
+		const res = await api().get("/api/requests?status=PENDING").set(as(token))
+
+		expect(res.status).toBe(200)
+		expect(ids(res)).toEqual([r1.id])
+	})
+
+	it("ignores ?borrowerId=<Borrower 2>", async () => {
+		const { r1, r2 } = await fixture()
+		const token = await loginAs(app.url, "BORROWER")
+
+		const res = await api()
+			.get(`/api/requests?borrowerId=${await borrower2()}`)
+			.set(as(token))
+
+		expect(res.status).toBe(200)
+		expect(ids(res)).toEqual([r2.id, r1.id])
+	})
+
+	it("returns [] for a Borrower with no requests", async () => {
+		const token = await loginAs(app.url, "BORROWER")
+		const res = await api().get("/api/requests").set(as(token))
+		expect(res.status).toBe(200)
+		expect(res.body).toEqual([])
+	})
+
+	it("breaks a createdAt tie by id ascending", async () => {
+		const b1 = await borrower1()
+		const createdAt = new Date("2026-11-10T03:00:00Z")
+		const high = "ffffffff-0000-4000-8000-000000000000"
+		const low = "00000000-0000-4000-8000-000000000000"
+		// Inserted high id first, so heap order alone would put it first.
+		await insertRequest("CPE-0201", b1, "2026-11-20", "2026-11-22", "PENDING", { id: high, createdAt })
+		await insertRequest("CPE-0202", b1, "2026-11-20", "2026-11-22", "PENDING", { id: low, createdAt })
+		const token = await loginAs(app.url, "BORROWER")
+
+		const res = await api().get("/api/requests").set(as(token))
+
+		expect(ids(res)).toEqual([low, high])
+	})
+
+	it("400 VALIDATION_ERROR for a status outside the six values", async () => {
+		const token = await loginAs(app.url, "BORROWER")
+		const res = await api().get("/api/requests?status=OVERDUE").set(as(token))
+		expect(res.status).toBe(400)
+		expect(res.body.error.code).toBe("VALIDATION_ERROR")
+	})
+
+	it("401 without a token", async () => {
+		const res = await api().get("/api/requests")
+		expect(res.status).toBe(401)
+		expect(res.body.error.code).toBe("UNAUTHENTICATED")
+	})
+
+	it("a Custodian sees every request, and ?status=PENDING is oldest first (F-05 scope)", async () => {
+		const { r1, r2, r3 } = await fixture()
+		const token = await loginAs(app.url, "CUSTODIAN")
+
+		const all = await api().get("/api/requests").set(as(token))
+		expect(all.status).toBe(200)
+		expect(ids(all)).toEqual([r3.id, r2.id, r1.id])
+
+		const pending = await api().get("/api/requests?status=PENDING").set(as(token))
+		expect(pending.status).toBe(200)
+		expect(ids(pending)).toEqual([r1.id, r3.id])
+		expect(pending.body[1].borrower.displayName).toBe("Borrower Two")
+	})
+})
+
+describe("GET /api/requests/:id is ownership-scoped (TEST-29, AC-25)", () => {
+	const r3 = async () => insertRequest("CPE-0203", await borrower2(), "2026-11-20", "2026-11-22", "PENDING")
+
+	it("404 with body keys exactly [error] for another Borrower's request; 200 for its owner", async () => {
+		const { id } = await r3()
+
+		const other = await api()
+			.get(`/api/requests/${id}`)
+			.set(as(await loginAs(app.url, "BORROWER")))
+		expect(other.status).toBe(404)
+		expect(Object.keys(other.body)).toEqual(["error"])
+		expect(other.body.error.code).toBe("NOT_FOUND")
+
+		const owner = await api()
+			.get(`/api/requests/${id}`)
+			.set(as(await loginAs(app.url, "BORROWER2")))
+		expect(owner.status).toBe(200)
+		expect(owner.body).toMatchObject({ id, status: "PENDING", borrower: { displayName: "Borrower Two" } })
+	})
+
+	it("a Custodian can read any request", async () => {
+		const { id } = await r3()
+		const res = await api()
+			.get(`/api/requests/${id}`)
+			.set(as(await loginAs(app.url, "CUSTODIAN")))
+		expect(res.status).toBe(200)
+		expect(res.body.id).toBe(id)
+	})
+
+	it.each([
+		["not a UUID", "abc"],
+		["unknown", "00000000-0000-4000-8000-000000000000"],
+	])("404 NOT_FOUND when :id is %s", async (_, id) => {
+		const res = await api()
+			.get(`/api/requests/${id}`)
+			.set(as(await loginAs(app.url, "BORROWER")))
+		expect(res.status).toBe(404)
+		expect(res.body.error.code).toBe("NOT_FOUND")
+	})
+
+	it("401 without a token", async () => {
+		const { id } = await r3()
+		const res = await api().get(`/api/requests/${id}`)
+		expect(res.status).toBe(401)
 	})
 })
