@@ -19,7 +19,7 @@
 	--color-action-primary-text: #f8fafc;
 	--color-focus: #2563eb;
 	--color-error-bg: #fef2f2;
-	--color-error-border: #fecaca;
+	--color-error-border: #dc2626;
 	--color-error-text: #b91c1c;
 	--color-info-bg: #eff6ff;
 	--color-info-border: #bfdbfe;
@@ -31,6 +31,12 @@
 	--color-badge-neutral-text: #334155;
 	--color-badge-info-bg: #dbeafe;
 	--color-badge-error-bg: #fee2e2;
+	--color-bg-subtle: #f1f5f9;
+	--color-bg-overlay: #0f172a;
+	--color-action-danger-bg: #dc2626;
+	--color-action-danger-text: #ffffff;
+	--color-action-disabled-bg: #e2e8f0;
+	--color-text-disabled: #94a3b8;
 }
 
 .dark {
@@ -48,7 +54,7 @@
 	--color-action-primary-text: #0f172a;
 	--color-focus: #60a5fa;
 	--color-error-bg: #450a0a;
-	--color-error-border: #7f1d1d;
+	--color-error-border: #f87171;
 	--color-error-text: #fecaca;
 	--color-info-bg: #172554;
 	--color-info-border: #1e3a8a;
@@ -60,6 +66,12 @@
 	--color-badge-neutral-text: #e2e8f0;
 	--color-badge-info-bg: #1e3a8a;
 	--color-badge-error-bg: #7f1d1d;
+	--color-bg-subtle: #334155;
+	--color-bg-overlay: #020617;
+	--color-action-danger-bg: #dc2626;
+	--color-action-danger-text: #ffffff;
+	--color-action-disabled-bg: #334155;
+	--color-text-disabled: #64748b;
 }
 
 @theme inline {
@@ -90,6 +102,12 @@
 	--color-badge-neutral-fg: var(--color-badge-neutral-text);
 	--color-badge-info-bg: var(--color-badge-info-bg);
 	--color-badge-error-bg: var(--color-badge-error-bg);
+	--color-subtle: var(--color-bg-subtle);
+	--color-overlay: var(--color-bg-overlay);
+	--color-danger: var(--color-action-danger-bg);
+	--color-on-danger: var(--color-action-danger-text);
+	--color-disabled: var(--color-action-disabled-bg);
+	--color-disabled-fg: var(--color-text-disabled);
 }
 
 body {

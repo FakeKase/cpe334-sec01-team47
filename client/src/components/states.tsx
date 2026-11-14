@@ -1,9 +1,15 @@
 import type { ReactNode } from "react"
 
-export const buttonClass = (style: "primary" | "secondary" = "primary") =>
-	`inline-flex min-h-11 items-center justify-center rounded-lg px-4 font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-		style === "primary" ? "bg-primary text-on-primary" : "border border-line-strong bg-surface text-fg"
-	}`
+// Figma "Button": Primary, Secondary and Danger, each with its own disabled colours.
+const buttonStyle = {
+	primary: "bg-primary text-on-primary disabled:bg-disabled disabled:text-disabled-fg",
+	secondary:
+		"border border-line-strong bg-surface text-fg disabled:border-line disabled:bg-subtle disabled:text-disabled-fg",
+	danger: "bg-danger text-on-danger disabled:bg-disabled disabled:text-disabled-fg",
+}
+
+export const buttonClass = (style: keyof typeof buttonStyle = "primary") =>
+	`inline-flex min-h-11 items-center justify-center rounded-lg px-4 font-medium disabled:cursor-not-allowed ${buttonStyle[style]}`
 
 export function LoadingState({ message }: { message: string }) {
 	return (
@@ -38,7 +44,7 @@ export function ErrorState({ onRetry }: { onRetry: () => void }) {
 }
 
 const alertTone = {
-	error: "border-error-border bg-error-bg text-error-fg",
+	error: "border-error-border bg-error-bg text-fg",
 	info: "border-info-border bg-info-bg text-info-fg",
 	success: "border-success-border bg-success-bg text-fg",
 }
@@ -48,6 +54,19 @@ export function Alert({ kind, children }: { kind: keyof typeof alertTone; childr
 		<div
 			role={kind === "error" ? "alert" : "status"}
 			className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${alertTone[kind]}`}>
+			{kind === "error" && (
+				<svg
+					viewBox="0 0 20 20"
+					className="size-5 shrink-0 text-error-border"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.67"
+					strokeLinecap="round"
+					aria-hidden="true">
+					<circle cx="10" cy="10" r="7.5" />
+					<path d="M10 5.83v5M10 13.75v.01" />
+				</svg>
+			)}
 			{kind === "success" && (
 				<svg
 					viewBox="0 0 24 24"

@@ -1,37 +1,10 @@
 import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
-import { type BorrowRequest, formatPeriod, formatTimestampDate, requestStatus } from "../api/requests"
+import type { BorrowRequest } from "../api/requests"
 import { useApi } from "../api/useApi"
+import { card, RequestRow } from "../components/RequestRow"
 import { Alert, EmptyState, ErrorState, LoadingState } from "../components/states"
-
-const card = "rounded-xl border border-line bg-surface"
-
-function RequestStatusBadge({ status }: Pick<BorrowRequest, "status">) {
-	const { label, tone } = requestStatus[status]
-	return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>{label}</span>
-}
-
-/** Desktop: one line with item, period, badge and submitted date. Mobile (360): stacked, badge beside the date. */
-function RequestRow({ r }: { r: BorrowRequest }) {
-	return (
-		<li
-			className={`${card} grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 p-4 md:grid-cols-[minmax(0,1fr)_14rem_8rem_auto]`}>
-			<div className="col-span-2 min-w-0 md:col-span-1">
-				<p className="font-medium">{r.item.name}</p>
-				<p className="text-sm text-muted">{r.item.assetTag}</p>
-			</div>
-			<p className="col-span-2 text-sm font-medium md:col-span-1">{formatPeriod(r.startDate, r.dueDate)}</p>
-			<div>
-				<RequestStatusBadge status={r.status} />
-			</div>
-			<p className="text-sm text-muted md:text-right">Submitted {formatTimestampDate(r.createdAt)}</p>
-			{r.status === "REJECTED" && r.rejectionReason && (
-				<p className="col-span-full mt-1 text-sm text-secondary">Reason: {r.rejectionReason}</p>
-			)}
-		</li>
-	)
-}
 
 /** F-04: the Borrower's own requests, newest first (the server applies the scope and the order). */
 export function MyRequests() {

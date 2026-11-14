@@ -48,3 +48,11 @@ export const formatTimestampDate = (iso: string) => {
 	const date = new Date(iso)
 	return Number.isNaN(date.getTime()) ? iso : formatDate(date.toLocaleDateString("en-CA", { timeZone }))
 }
+
+/** "12 Nov 2026, 14:05" in `timeZone`. */
+export const formatTimestamp = (iso: string) => {
+	const date = new Date(iso)
+	if (Number.isNaN(date.getTime())) return iso
+	const time = date.toLocaleTimeString("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+	return `${formatTimestampDate(iso)}, ${time}`
+}
