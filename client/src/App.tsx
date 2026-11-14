@@ -7,7 +7,7 @@ import { Catalog } from "./pages/Catalog"
 import { ItemDetail } from "./pages/ItemDetail"
 import { Login } from "./pages/Login"
 import { MyRequests } from "./pages/MyRequests"
-import { Placeholder } from "./pages/Placeholder"
+import { Requests } from "./pages/Requests"
 import { NotFound } from "./pages/SystemPages"
 
 function Layout() {
@@ -39,7 +39,7 @@ export function App() {
 						<Route path="/my-requests" element={<MyRequests />} />
 					</Route>
 					<Route element={<RequireRole allow="CUSTODIAN" />}>
-						<Route path="/requests" element={<Placeholder title="Requests" />} />
+						<Route path="/requests" element={<Requests />} />
 					</Route>
 					<Route path="*" element={<NotFound />} />
 				</Route>

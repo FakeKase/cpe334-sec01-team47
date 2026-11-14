@@ -27,7 +27,7 @@ const app = new Elysia()
 		body: z.object({ name: z.string().min(1) }),
 	})
 	.post("/admin", () => ({ ok: true }), {
-		beforeHandle: requireRole("CUSTODIAN"),
+		transform: requireRole("CUSTODIAN"),
 		body: z.object({ name: z.string().min(1) }),
 	})
 
@@ -77,6 +77,11 @@ describe("requireRole", () => {
 		expect(await res.json()).toEqual({
 			error: { code: "FORBIDDEN", message: "You are not allowed to do this." },
 		})
+	})
+
+	it("403, not 400, when the role is not allowed and the body is invalid", async () => {
+		const res = await post("/admin", { wrong: 1 }, "borrower")
+		expect(res.status).toBe(403)
 	})
 
 	it("lets an allowed role through", async () => {
