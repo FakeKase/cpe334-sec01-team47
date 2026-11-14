@@ -43,6 +43,9 @@ export const formatPeriod = (start: string, due: string) =>
 /** Must match the server's APP_TIMEZONE, which decides "today" for BR-01. */
 const timeZone = import.meta.env.VITE_APP_TIMEZONE || "Asia/Bangkok"
 
+/** Today as YYYY-MM-DD in `timeZone`, the "today" that BR-01 compares against. */
+export const today = () => new Date().toLocaleDateString("en-CA", { timeZone })
+
 /** The calendar day of a timestamp in `timeZone`. */
 export const formatTimestampDate = (iso: string) => {
 	const date = new Date(iso)

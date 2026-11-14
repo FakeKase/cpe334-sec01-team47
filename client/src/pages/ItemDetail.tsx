@@ -5,6 +5,7 @@ import { useApi } from "../api/useApi"
 import { useAuth } from "../auth/AuthContext"
 import { buttonClass, ErrorState, LoadingState } from "../components/states"
 import { StatusBadge } from "./Catalog"
+import { RequestForm } from "./RequestForm"
 import { NotFound } from "./SystemPages"
 
 export function ItemDetail() {
@@ -65,8 +66,7 @@ export function ItemDetail() {
 				<section className="mt-6">
 					<h2 className="text-lg font-semibold">Request this item</h2>
 					{item.status === "ACTIVE" ? (
-						// The F-03 request form is mounted here when its UI lands.
-						<p className="mt-2 text-muted">Requesting from the catalog is coming soon.</p>
+						<RequestForm itemId={item.id} />
 					) : (
 						<>
 							<p className="mt-2 text-muted">This item is under maintenance and cannot be requested.</p>
