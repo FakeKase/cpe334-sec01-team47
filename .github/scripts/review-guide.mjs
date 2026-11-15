@@ -7,7 +7,7 @@ const { GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, OPENROUTER_API_KEY } = proce
 
 // ponytail: noise files skipped and diff capped at ~60k chars; raise the cap
 // if guides on large PRs start missing files that matter.
-const SKIP = /(^|\/)(pnpm-lock\.yaml|package-lock\.json)$|(^|\/)generated\//
+const SKIP = /(^|\/)(pnpm-lock\.yaml|package-lock\.json|bun\.lock)$|(^|\/)generated\//
 const MAX_DIFF_CHARS = 60_000
 
 const gh = (path) =>

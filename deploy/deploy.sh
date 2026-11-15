@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==============================================================================
-# TokTickIT — Idempotent Google Cloud Run Deployment Script
+# YuemPuenMa — Idempotent Google Cloud Run Deployment Script
 # ==============================================================================
 # Usage:
 #   ./deploy/deploy.sh [--demo]
@@ -100,33 +100,33 @@ fi
 
 # ------------------------------------------------------------------------------
 # Resource names
-# ⚠️ The lab guide refers to these names (toktickit, toktickit-pg,
-#    toktickit-runner, ...) and deploy.yml / release.sh / teardown.sh use the
+# ⚠️ The lab guide refers to these names (yuempuenma, yuempuenma-pg,
+#    yuempuenma-runner, ...) and deploy.yml / release.sh / teardown.sh use the
 #    same ones. Keep them unless the guide says otherwise.
 # CHANGE ME: rename only if your group uses its own naming (then rename it in
 #            deploy.yml, release.sh, teardown.sh and the tests too).
 # ------------------------------------------------------------------------------
-REPO_NAME="toktickit"
-SQL_INSTANCE="toktickit-pg"
-DB_NAME="toktickit"
-DB_USER="toktickit"
-SERVICE_NAME="toktickit"
-MIGRATE_JOB_NAME="toktickit-migrate"
-SA_NAME="toktickit-runner"
+REPO_NAME="yuempuenma"
+SQL_INSTANCE="yuempuenma-pg"
+DB_NAME="yuempuenma"
+DB_USER="yuempuenma"
+SERVICE_NAME="yuempuenma"
+MIGRATE_JOB_NAME="yuempuenma-migrate"
+SA_NAME="yuempuenma-runner"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 SQL_CONN_NAME="${PROJECT_ID}:${REGION}:${SQL_INSTANCE}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest"
 
 # Secret Manager secret names (values are never stored in this repo).
-SECRET_DB_URL="toktickit-database-url"
-SECRET_ADMIN_PASS="toktickit-admin-password"
-SECRET_DEMO_PASS="toktickit-demo-password"
+SECRET_DB_URL="yuempuenma-database-url"
+SECRET_ADMIN_PASS="yuempuenma-admin-password"
+SECRET_DEMO_PASS="yuempuenma-demo-password"
 
 GENERATED_ADMIN_PASSWORD=""
 GENERATED_DEMO_PASSWORD=""
 
 echo "=================================================================="
-echo "TokTickIT Cloud Run Deployment"
+echo "YuemPuenMa Cloud Run Deployment"
 echo "Project : ${PROJECT_ID}"
 echo "Region  : ${REGION}"
 echo "Demo    : ${SEED_DEMO_DATA}"
@@ -151,13 +151,13 @@ run_cmd gcloud services enable \
 # ==============================================================================
 if [ "$DRY_RUN" = "1" ]; then
   run_cmd gcloud artifacts repositories describe "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID"
-  run_cmd gcloud artifacts repositories create "$REPO_NAME" --repository-format=docker --location "$REGION" --description="TokTickIT container repository" --project "$PROJECT_ID"
+  run_cmd gcloud artifacts repositories create "$REPO_NAME" --repository-format=docker --location "$REGION" --description="YuemPuenMa container repository" --project "$PROJECT_ID"
 else
   if ! gcloud artifacts repositories describe "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
     run_cmd gcloud artifacts repositories create "$REPO_NAME" \
       --repository-format=docker \
       --location "$REGION" \
-      --description="TokTickIT container repository" \
+      --description="YuemPuenMa container repository" \
       --project "$PROJECT_ID"
   fi
 fi
@@ -207,11 +207,11 @@ fi
 # ==============================================================================
 if [ "$DRY_RUN" = "1" ]; then
   run_cmd gcloud iam service-accounts describe "$SA_EMAIL" --project "$PROJECT_ID"
-  run_cmd gcloud iam service-accounts create "$SA_NAME" --display-name="TokTickIT Cloud Run Service Account" --project "$PROJECT_ID"
+  run_cmd gcloud iam service-accounts create "$SA_NAME" --display-name="YuemPuenMa Cloud Run Service Account" --project "$PROJECT_ID"
 else
   if ! gcloud iam service-accounts describe "$SA_EMAIL" --project "$PROJECT_ID" >/dev/null 2>&1; then
     run_cmd gcloud iam service-accounts create "$SA_NAME" \
-      --display-name="TokTickIT Cloud Run Service Account" \
+      --display-name="YuemPuenMa Cloud Run Service Account" \
       --project "$PROJECT_ID"
   fi
 fi
@@ -315,9 +315,9 @@ run_cmd gcloud builds submit \
 # 10. Create/Update & Execute Cloud Run Job for Migration + Non-destructive Seed
 #     ⭐ IMPORTANT: if this job fails the script stops BEFORE deploying the
 #        service, so a broken migration never reaches users.
-#     CHANGE ME: `--args` (prisma migrate deploy && npm run prisma:seed) is
-#        Prisma/npm specific — use your stack's migrate/seed command.
-#     deploy.yml / release.sh later re-run this same job (name: toktickit-migrate).
+#     CHANGE ME: `--args` (prisma migrate deploy && bun run prisma:seed) is
+#        Prisma/bun specific — use your stack's migrate/seed command.
+#     deploy.yml / release.sh later re-run this same job (name: yuempuenma-migrate).
 # ==============================================================================
 run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --image "$IMAGE_URI" \
@@ -327,7 +327,7 @@ run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --set-secrets "$JOB_SECRETS" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=${SEED_DEMO_DATA}" \
   --command "sh" \
-  --args "-c,npx prisma migrate deploy && npm run prisma:seed" \
+  --args "-c,bunx prisma migrate deploy && bun run prisma:seed" \
   --max-retries 1 \
   --task-timeout 300s \
   --project "$PROJECT_ID"

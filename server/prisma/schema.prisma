@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BORROWER
+  CUSTODIAN
+}
+
+enum ItemStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  CHECKED_OUT
+  RETURNED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique // stored lower-cased
+  displayName  String
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  sessions Session[]
+  borrowed BorrowRequest[] @relation("Borrower")
+  decided  BorrowRequest[] @relation("Decider")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique @db.Char(64) // SHA-256 hex, never the plaintext token
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  expiresAt DateTime @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id    String @id @default(uuid()) @db.Uuid
+  name  String @unique
+  items Item[]
+}
+
+model Item {
+  id          String     @id @default(uuid()) @db.Uuid
+  assetTag    String     @unique // stored upper-cased
+  name        String
+  description String?
+  location    String?
+  categoryId  String     @db.Uuid
+  status      ItemStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @db.Timestamptz
+  updatedAt   DateTime   @updatedAt @db.Timestamptz
+
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  requests BorrowRequest[]
+}
+
+// Sprint 2 adds the cancel/checkout/return columns in an additive migration.
+// CHECK ("dueDate" >= "startDate") is appended to the init migration by hand (Prisma cannot express it).
+model BorrowRequest {
+  id              String        @id @default(uuid()) @db.Uuid
+  itemId          String        @db.Uuid
+  borrowerId      String        @db.Uuid
+  startDate       DateTime      @db.Date
+  dueDate         DateTime      @db.Date
+  purpose         String
+  status          RequestStatus @default(PENDING)
+  rejectionReason String?
+  decidedById     String?       @db.Uuid
+  decidedAt       DateTime?     @db.Timestamptz
+  createdAt       DateTime      @default(now()) @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @db.Timestamptz
+
+  item      Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  borrower  User  @relation("Borrower", fields: [borrowerId], references: [id], onDelete: Restrict)
+  decidedBy User? @relation("Decider", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@index([itemId, status])
+  @@index([borrowerId, status])
+  @@index([status, createdAt])
+}
