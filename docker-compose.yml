@@ -19,8 +19,8 @@ services:
 
   migrate:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     container_name: yuempuenma-migrate
     restart: "no"
     depends_on:
@@ -36,8 +36,8 @@ services:
 
   server:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     container_name: yuempuenma-server
     restart: unless-stopped
     depends_on:
@@ -55,8 +55,8 @@ services:
 
   client:
     build:
-      context: ./client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: client/Dockerfile
       args:
         VITE_API_URL: ""
     container_name: yuempuenma-client

@@ -41,11 +41,15 @@
 # ============================================================================
 # CHANGE ME: replace with your frontend toolchain (delete the stage if none).
 FROM oven/bun:1-alpine AS client-builder
-WORKDIR /app/client
+WORKDIR /app
 # Copy package files first so `bun install` is cached until dependencies change.
-COPY client/package.json client/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY client/ ./
+# The lockfile is the workspace root's; --filter installs only the client's dependencies.
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile --ignore-scripts --filter cpe334-team47-client
+COPY client/ client/
+WORKDIR /app/client
 # Empty API URL => the SPA calls the API on the same origin (same container).
 ENV VITE_API_URL=""
 RUN bun run build
@@ -55,12 +59,15 @@ RUN bun run build
 # ============================================================================
 # CHANGE ME: replace with your backend build (compile / package your app).
 FROM oven/bun:1-alpine AS server-builder
-WORKDIR /app/server
+WORKDIR /app
 # Prisma needs openssl on alpine.
 RUN apk add --no-cache openssl
-COPY server/package.json server/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY server/ ./
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile --ignore-scripts --filter cpe334-team47-server
+COPY server/ server/
+WORKDIR /app/server
 # CHANGE ME: `prisma generate` is Prisma-specific; drop it for other ORMs.
 RUN bunx prisma generate && bun run typecheck
 
@@ -73,7 +80,9 @@ WORKDIR /app/server
 RUN apk add --no-cache openssl
 
 # --- Copy build output from the previous stages (no dev tooling) -------------
-COPY --from=server-builder /app/server/package.json /app/server/bun.lock ./
+COPY --from=server-builder /app/server/package.json ./
+# server/node_modules holds symlinks into the root store (/app/node_modules/.bun), so copy both.
+COPY --from=server-builder /app/node_modules /app/node_modules
 COPY --from=server-builder /app/server/node_modules ./node_modules
 COPY --from=server-builder /app/server/src ./src
 COPY --from=server-builder /app/server/prisma ./prisma

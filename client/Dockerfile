@@ -13,21 +13,25 @@
 # --- Stage 1: Build static frontend files -------------------------------------
 # CHANGE ME: base image and build commands for your frontend.
 FROM oven/bun:1-alpine AS build
-WORKDIR /app
+WORKDIR /app/client
 
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# The build context is the repository root (see docker-compose.yml), because the
+# lockfile belongs to the workspace root. --filter installs only this package's deps.
+COPY package.json bun.lock /app/
+COPY client/package.json /app/client/
+COPY server/package.json /app/server/
+RUN cd /app && bun install --frozen-lockfile --ignore-scripts --filter cpe334-team47-client
 
-COPY . .
+COPY client/ ./
 ARG VITE_API_URL=""
 ENV VITE_API_URL=${VITE_API_URL}
 RUN bun run build
 
 # --- Stage 2: Serve built files with nginx (proxies /api -> server:3000) ------
 FROM nginx:stable-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY client/nginx.conf /etc/nginx/conf.d/default.conf
 # CHANGE ME: replace `/app/dist` if your bundler outputs to another folder.
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/client/dist /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -26,23 +26,25 @@ CPE 334 Software Engineering, Section 01, Team 47. Code identifiers, the databas
 | `e2e/` | Playwright specs and helpers. Configuration is in `playwright.config.ts`. |
 | `docs/` | Specification, design, plan, contracts and test specification (see "Documentation") |
 | `deploy/` | Scripts for the planned Cloud Run deployment and their offline tests |
-| `Dockerfile`, `server/Dockerfile`, `client/Dockerfile`, `client/nginx.conf`, `docker-compose.yml` | Container images and the local stack |
+| `Dockerfile`, `server/Dockerfile`, `client/Dockerfile`, `client/nginx.conf`, `docker-compose.yml` | Container images (all built from the repository root) and the local stack |
+| `compose-db.yml` | PostgreSQL alone, for running the API and tests on the host (`bun run db:up`) |
+| `turbo.json`, `AGENTS.md` | Task runner configuration and the shared instructions for AI coding agents (`CLAUDE.md` imports it) |
 | `.github/` | `workflows/pr-test-res.yml` and the scripts it uses |
 
 ## Run, seed and test locally
 
 **Requirements:** [Bun](https://bun.sh) 1.3 or newer, [Docker](https://www.docker.com) (for PostgreSQL 16), and, for the end-to-end spec only, Playwright's Chromium (one-time: `bunx playwright install chromium`).
 
-1. **Install.** `bun install` at the repository root, then in `server/` and in `client/`.
-2. **Database.** Start PostgreSQL with `docker compose up -d db`. It listens on `localhost:5432`.
+1. **Install.** `bun install` at the repository root. The repository is a Bun workspace (`client`, `server`) with one lockfile, and [Turborepo](https://turborepo.com) runs the package scripts. Client tests also need Node on `PATH` (vitest under Bun breaks MSW).
+2. **Database.** `bun run db:up` starts PostgreSQL from `compose-db.yml` on `localhost:5432` and, on its first start, creates the `inventory_test` database for the API tests. `bun run db:down` stops it and keeps the data.
 3. **Environment.** Copy `server/.env.example` to `server/.env` and set the values. `DATABASE_URL`, `ADMIN_PASSWORD` (the Custodian's password) and `DEMO_USER_PASSWORD` (the Borrowers' password) are required; the example file explains every variable. Use synthetic values. `.env` is git-ignored and must never be committed. `client/.env.example` is only needed when the API runs on another origin.
 4. **Migrate and seed.** In `server/`: `bunx prisma migrate deploy`, then `bun run prisma:seed`. The seed creates 4 categories, 12 items (one `MAINTENANCE`, one `RETIRED`), the Custodian `custodian@example.test` and, when `SEED_DEMO_DATA=true`, the Borrowers `borrower1@example.test` and `borrower2@example.test`. `SEED_DEMO_REQUESTS=true` adds one approved demo booking on `CPE-0201`.
-5. **Run.** In `server/`: `bun run dev` (API on `:3000`). In `client/`: `bun run dev` (UI on `:5173`, which proxies `/api`). Or run everything with `docker compose up --build`.
-6. **Build.** `bun run build` in `client/` (type-checks, then builds). `bun run typecheck` in `server/` and `client/`.
+5. **Run.** `bun run dev` at the root starts the API on `:3000` and the UI on `:5173` (which proxies `/api`). Or run everything in containers with `docker compose up --build`.
+6. **Build.** `bun run build` and `bun run typecheck` at the root.
 7. **Test.**
-   - API and unit tests need their own database, because every test file resets the tables. Create an empty database named `inventory_test` (for example `docker exec yuempuenma-db psql -U yuempuenma -d postgres -c "CREATE DATABASE inventory_test"`). The `test` script loads `server/test/.env.test` (`bun --env-file=test/.env.test`), which wins over `server/.env`, so the tests never touch your development database. To use another host or port, export `DATABASE_URL` in the shell before running; an exported value wins. The global setup refuses to run against a database whose name does not contain `_test`. Then run `bun run test` in `server/`.
-   - Component tests: `bun run test` in `client/`.
-   - End-to-end test (needs the API and the client running on a freshly seeded database with `SEED_DEMO_REQUESTS=false`): `bunx playwright test` at the repository root. The spec logs in with the seeded accounts, so if you seeded with your own passwords, export the same `ADMIN_PASSWORD` and `DEMO_USER_PASSWORD` in the shell first (the defaults are the `docker-compose.yml` values). Set `E2E_BASE_URL` to use another address.
+   - `bun run test` at the root runs the API, unit and component suites. To run one, add `--filter cpe334-team47-server` (or `-client`) to `bunx turbo run test`.
+   - API and unit tests need their own database, because every test file resets the tables. `bun run db:up` creates `inventory_test`; with another Postgres, create an empty database with that name yourself. The `test` script loads `server/test/.env.test` (`bun --env-file=test/.env.test`), which wins over `server/.env`, so the tests never touch your development database. To use another host or port, export `DATABASE_URL` in the shell before running; an exported value wins. The global setup refuses to run against a database whose name does not contain `_test`.
+   - End-to-end test (needs the API and the client running on a freshly seeded database with `SEED_DEMO_REQUESTS=false`): `bun run test:e2e` at the repository root. The spec logs in with the seeded accounts, so if you seeded with your own passwords, export the same `ADMIN_PASSWORD` and `DEMO_USER_PASSWORD` in the shell first (the defaults are the `docker-compose.yml` values). Set `E2E_BASE_URL` to use another address.
 
 ## Documentation
 

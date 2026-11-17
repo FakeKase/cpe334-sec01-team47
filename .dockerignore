@@ -1,0 +1,10 @@
+# Host installs hold symlinks into the root store; every image installs its own.
+**/node_modules
+**/dist
+.git
+.turbo
+**/.turbo
+**/.env
+**/.env.*
+test-results
+playwright-report
