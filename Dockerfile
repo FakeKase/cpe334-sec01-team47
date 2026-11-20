@@ -5,12 +5,13 @@
 #   Builds ONE image that contains the API (Elysia on Bun) AND the built React SPA and
 #   serves both on port 3000. Cloud Run (and CI) build/run exactly this image.
 #   (client/Dockerfile and server/Dockerfile are separate, used only by
-#    docker-compose for local development.)
+#    docker-compose.yml, the local production-like stack.)
 #
-# STRUCTURE (3 stages)
+# STRUCTURE (4 stages)
 #   Stage 1  client-builder -> compiles the frontend (Vite)
 #   Stage 2  server-builder -> compiles the backend (TypeScript + Prisma)
-#   Stage 3  production     -> small runtime image; copies only build output
+#   Stage 3  server-runtime-deps -> production-only dependencies + Prisma client
+#   Stage 4  production     -> small runtime image; copies only build output
 #
 # ⭐ IMPORTANT
 #   * The container MUST listen on $PORT (Cloud Run injects it; 3000 here) and
@@ -18,7 +19,8 @@
 #   * Build from the repo root:  docker build .   (paths are relative to it).
 #   * Secrets (DATABASE_URL, passwords) are NEVER baked into the image; they are
 #     injected at runtime from Secret Manager (see deploy/deploy.sh).
-#   * Stage 3 runs as the unprivileged `bun` user (USER bun) — keep it.
+#   * Stage 4 runs as the unprivileged `bun` user (USER bun) — keep it.
+#   * The Bun version (1.4.4) matches `packageManager` in package.json; bump both.
 #   * prisma/ is copied into the runtime image on purpose: the Cloud Run
 #     migration job runs `prisma migrate deploy` + seed from this same image.
 #
@@ -31,7 +33,7 @@
 #       https://www.prisma.io/docs/orm/prisma-client/deployment/deploy-prisma
 #
 # ⭐ CHANGE ME — groups using another tech stack must rewrite this file:
-#   # CHANGE ME: base images (oven/bun:1-alpine) -> your runtime
+#   # CHANGE ME: base images (oven/bun:1.4.4-alpine) -> your runtime
 #   # CHANGE ME: build commands (bun install / bun run build / prisma generate)
 #   # CHANGE ME: copied paths, ENV PORT / EXPOSE, final ENTRYPOINT / CMD
 # ##############################################################################
@@ -40,12 +42,16 @@
 # Stage 1: Build Frontend (React + TypeScript + Vite)
 # ============================================================================
 # CHANGE ME: replace with your frontend toolchain (delete the stage if none).
-FROM oven/bun:1-alpine AS client-builder
-WORKDIR /app/client
+FROM oven/bun:1.4.4-alpine AS client-builder
+WORKDIR /app
 # Copy package files first so `bun install` is cached until dependencies change.
-COPY client/package.json client/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY client/ ./
+# The lockfile is the workspace root's; --filter installs only the client's dependencies.
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile --ignore-scripts --filter cpe334-team47-client
+COPY client/ client/
+WORKDIR /app/client
 # Empty API URL => the SPA calls the API on the same origin (same container).
 ENV VITE_API_URL=""
 RUN bun run build
@@ -54,27 +60,48 @@ RUN bun run build
 # Stage 2: Build Backend (Elysia + TypeScript + Prisma)
 # ============================================================================
 # CHANGE ME: replace with your backend build (compile / package your app).
-FROM oven/bun:1-alpine AS server-builder
-WORKDIR /app/server
+FROM oven/bun:1.4.4-alpine AS server-builder
+WORKDIR /app
 # Prisma needs openssl on alpine.
 RUN apk add --no-cache openssl
-COPY server/package.json server/bun.lock ./
-RUN bun install --frozen-lockfile
-COPY server/ ./
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile --ignore-scripts --filter cpe334-team47-server
+COPY server/ server/
+WORKDIR /app/server
 # CHANGE ME: `prisma generate` is Prisma-specific; drop it for other ORMs.
 RUN bunx prisma generate && bun run typecheck
 
 # ============================================================================
-# Stage 3: Unified Production Runtime (Serves API + Built React SPA on :3000)
+# Stage 3: Runtime dependencies only (no typescript, vitest, test helpers)
+# ============================================================================
+# `prisma` is a runtime dependency on purpose: the Cloud Run migration job runs
+# `bunx prisma migrate deploy` from this image.
+FROM oven/bun:1.4.4-alpine AS server-runtime-deps
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile --ignore-scripts --production --filter cpe334-team47-server
+COPY server/prisma server/prisma
+WORKDIR /app/server
+RUN bunx prisma generate
+
+# ============================================================================
+# Stage 4: Unified Production Runtime (Serves API + Built React SPA on :3000)
 # ============================================================================
 # ⭐ IMPORTANT: this is the stage that actually runs on Cloud Run.
-FROM oven/bun:1-alpine AS production
+FROM oven/bun:1.4.4-alpine AS production
 WORKDIR /app/server
 RUN apk add --no-cache openssl
 
 # --- Copy build output from the previous stages (no dev tooling) -------------
-COPY --from=server-builder /app/server/package.json /app/server/bun.lock ./
-COPY --from=server-builder /app/server/node_modules ./node_modules
+COPY --from=server-builder /app/server/package.json ./
+# server/node_modules holds symlinks into the root store (/app/node_modules/.bun), so copy both.
+COPY --from=server-runtime-deps /app/node_modules /app/node_modules
+COPY --from=server-runtime-deps /app/server/node_modules ./node_modules
 COPY --from=server-builder /app/server/src ./src
 COPY --from=server-builder /app/server/prisma ./prisma
 COPY --from=server-builder /app/server/docker-entrypoint.sh ./docker-entrypoint.sh

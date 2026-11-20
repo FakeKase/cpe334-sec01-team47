@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
-# Offline regression checks: every gcloud and openssl call is a local stub.
+# Offline regression checks: every gcloud, docker and git call is a local stub.
 # ==============================================================================
 # WHAT THIS TEST DOES (no real GCP calls, no cost)
-#   Puts fake `gcloud` / `openssl` first on PATH and runs deploy/deploy.sh in
-#   these scenarios, asserting on the recorded commands:
-#     first_run : nothing exists      -> everything is created
-#     rerun     : everything exists   -> nothing replaced (credentials kept)
-#     partial   : DB secret missing   -> DB user password reset + secret created
-#     job-fail  : migration fails     -> script exits 1, service NOT deployed
-#     demo      : --demo flag         -> demo secret is created and granted
-#   It also checks: `--edition=enterprise`, no project-wide secretAccessor role,
-#   DB password == password inside DATABASE_URL, and that no password/secret
-#   value leaks into the output. Finally DRY_RUN=1 must make zero gcloud calls.
+#   Puts fake `gcloud` / `docker` / `git` first on PATH and runs deploy/deploy.sh
+#   for the shared course project, asserting on the recorded commands:
+#     release     : build -> push -> migrate job -> service update, by digest
+#     job-fail    : migration fails -> script exits 1, service NOT updated
+#     demo        : --demo adds the demo password secret and SEED_DEMO_DATA=true
+#                   to the migration job; a plain run never writes SEED_DEMO_DATA
+#     guards      : wrong project/region, stale IMAGE_TAG, dirty tree, HEAD not
+#                   origin/main -> refused before any gcloud call; a missing
+#                   secret or registry -> refused before anything is built
+#     detached    : a detached HEAD at origin/main is allowed
+#   It also checks that the script never creates infrastructure or IAM (the
+#   portal/TA own those), merges env vars/secrets instead of replacing them,
+#   and that DRY_RUN=1 makes zero gcloud calls.
 #
 # HOW TO RUN (repo root, needs bash):  bash deploy/tests/test_deploy_stub.sh
 #   Prints `PASS: <scenario>` per scenario; any `FAIL ...` exits non-zero.
 #   CI runs it too (.github/workflows/ci-docker.yml).
 #
-# ⭐ CHANGE ME: if you rename resources in deploy/deploy.sh (e.g. the secret
-#    names yuempuenma-database-url / -admin-password / -demo-password, the DB
-#    user `yuempuenma`), update the matching strings below.
+# ⭐ CHANGE ME: if you rename resources in deploy/deploy.sh (prefix sa8227601),
+#    update the matching strings below.
 # ==============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,141 +30,112 @@ export TEST_STATE_DIR
 TEST_STATE_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEST_STATE_DIR"' EXIT
 mkdir -p "$TEST_STATE_DIR/bin"
+SHA=2222222222222222222222222222222222222222
+PREFIX=asia-southeast1-docker.pkg.dev/cpe-se-course-2026/sa8227601/sa8227601
+export STUB_SHA="$SHA" STUB_DIGEST="${PREFIX}@sha256:abcdef"
 
-# --- Fake `openssl` (deterministic "random" values) ---------------------------
-cat > "$TEST_STATE_DIR/bin/openssl" <<'STUB'
-#!/usr/bin/env bash
-if [ "$2" = "-hex" ]; then
-  printf '%s\n' '0123456789abcdef0123456789abcdef0123456789abcdef'
-else
-  printf '%s\n' 'TESTONLYGENERATEDPASSWORD'
-fi
-STUB
-
-# --- Fake `gcloud`: logs each call (password redacted), answers per $STUB_MODE
+# --- Fake `gcloud` / `docker`: log each call; `git`: pretend HEAD is $STUB_SHA --
 cat > "$TEST_STATE_DIR/bin/gcloud" <<'STUB'
 #!/usr/bin/env bash
-set -euo pipefail
-redacted=()
-for arg in "$@"; do
-  case "$arg" in
-    --password=*)
-      printf '%s' "${arg#--password=}" > "$TEST_STATE_DIR/sql-pass"
-      redacted+=("--password=<REDACTED>") ;;
-    *) redacted+=("$arg") ;;
-  esac
-done
-printf '%s\n' "${redacted[*]}" >> "$GCLOUD_LOG"
-if [ "${1:-} ${2:-}" = 'config get-value' ]; then
-  echo stub-gcp-project
-  exit 0
-fi
-if [ "${1:-} ${2:-} ${3:-}" = 'run services describe' ]; then
-  echo https://yuempuenma-stub.example.invalid
-  exit 0
-fi
-if [ "${1:-} ${2:-} ${3:-}" = 'run jobs execute' ]; then
-  [ "$STUB_MODE" != job-fail ]
-  exit $?
-fi
-if [ "${1:-} ${2:-} ${3:-}" = 'secrets versions add' ]; then
-  cat > "$TEST_STATE_DIR/payload-${4}"
-  exit 0
-fi
-if [ "${1:-} ${2:-} ${3:-}" = 'sql users list' ]; then
-  if [ "$STUB_MODE" = first_run ]; then
-    echo postgres
-  else
-    printf 'postgres\nyuempuenma\n'
-  fi
-  exit 0
-fi
-for word in "$@"; do
-  if [ "$word" = describe ]; then
-    case "$STUB_MODE" in
-      first_run) exit 1 ;;
-      partial)
-        if [ "${1:-} ${3:-}" = 'secrets yuempuenma-database-url' ]; then
-          exit 1
-        fi ;;
-    esac
-  fi
-done
+printf '%s\n' "$*" >> "$GCLOUD_LOG"
+case "$*" in
+  "secrets describe ${STUB_MISSING_SECRET:-none} "*) exit 1 ;;
+  'artifacts repositories describe '*) [ "${STUB_MISSING_REPO:-}" != 1 ] ;;
+  'artifacts docker images describe '*) echo "$STUB_DIGEST" ;;
+  'run jobs execute '*) [ "$STUB_MODE" != job-fail ] ;;
+  'run services describe '*) echo https://sa8227601-stub.example.invalid ;;
+esac
 STUB
-chmod +x "$TEST_STATE_DIR/bin/openssl" "$TEST_STATE_DIR/bin/gcloud"
+cat > "$TEST_STATE_DIR/bin/docker" <<'STUB'
+#!/usr/bin/env bash
+printf 'docker %s\n' "$*" >> "$GCLOUD_LOG"
+STUB
+cat > "$TEST_STATE_DIR/bin/git" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  'rev-parse HEAD') echo "$STUB_SHA" ;;
+  'rev-parse origin/main') echo "${STUB_ORIGIN_SHA:-$STUB_SHA}" ;;
+  'status --porcelain') printf '%s' "${STUB_DIRTY:-}" ;;
+  'fetch --quiet origin main') ;;
+  # deploy.sh must not depend on a branch name (detached HEAD is allowed).
+  *) exit 1 ;;
+esac
+STUB
+chmod +x "$TEST_STATE_DIR"/bin/*
 export PATH="$TEST_STATE_DIR/bin:$PATH"
-export PROJECT_ID=stub-gcp-project
-export REGION=asia-southeast1
 export DRY_RUN=0
+unset PROJECT_ID REGION IMAGE_TAG
 
-# --- Run every scenario and assert on what deploy.sh did ------------------------
-for MODE in first_run rerun partial job-fail demo; do
-  export STUB_MODE="$MODE"
-  [ "$MODE" != demo ] || export STUB_MODE=first_run
-  export GCLOUD_LOG="$TEST_STATE_DIR/gcloud-$MODE.log"
-  rm -f "$TEST_STATE_DIR/sql-pass" "$TEST_STATE_DIR"/payload-*
+fail() { echo "FAIL $*"; exit 1; }
+
+# --- Release scenarios -----------------------------------------------------------
+for MODE in release job-fail demo detached; do
+  export STUB_MODE="$MODE" GCLOUD_LOG="$TEST_STATE_DIR/gcloud-$MODE.log"
   args=()
   if [ "$MODE" = demo ]; then args+=(--demo); fi
   result=0
   bash "$DEPLOY_SCRIPT" "${args[@]}" > "$TEST_STATE_DIR/output" 2>&1 || result=$?
   expected=0
   if [ "$MODE" = job-fail ]; then expected=1; fi
-  if [ "$result" -ne "$expected" ]; then
-    echo "FAIL $MODE: unexpected exit $result (wanted $expected)"
-    exit 1
-  fi
+  [ "$result" -eq "$expected" ] || fail "$MODE: unexpected exit $result (wanted $expected)"
+
+  grep -q "^docker build .*--tag ${PREFIX}:${SHA} " "$GCLOUD_LOG" || fail "$MODE: image not tagged with commit SHA"
+  grep -q "^run jobs update sa8227601-migrate --image ${STUB_DIGEST} " "$GCLOUD_LOG" || fail "$MODE: job not pinned to digest"
+  grep -q 'bunx prisma migrate deploy && bun run prisma:seed' "$GCLOUD_LOG" || fail "$MODE: wrong migration command"
+  if grep -Eq -- '--set-(secrets|env-vars)' "$GCLOUD_LOG"; then fail "$MODE: replaces provisioned env vars/secrets"; fi
+  grep -q '^secrets describe sa8227601-database-url ' "$GCLOUD_LOG" || fail "$MODE: secrets not checked before use"
   if [ "$MODE" = job-fail ]; then
-    if grep -q '^run deploy ' "$GCLOUD_LOG"; then
-      echo 'FAIL: service deployed after migration failure'; exit 1
-    fi
+    if grep -q '^run services update ' "$GCLOUD_LOG"; then fail 'service updated after migration failure'; fi
   else
-    grep -q '^run deploy ' "$GCLOUD_LOG"
+    grep -q "^run services update sa8227601 --image ${STUB_DIGEST} .*--port 3000 " "$GCLOUD_LOG" || fail "$MODE: service not updated by digest on port 3000"
   fi
-  if grep -q '^projects add-iam-policy-binding .*roles/secretmanager.secretAccessor' "$GCLOUD_LOG"; then
-    echo 'FAIL: runtime has project-wide secret access'; exit 1
-  fi
-  for secret in yuempuenma-database-url yuempuenma-admin-password; do
-    grep -q "^secrets add-iam-policy-binding $secret .*roles/secretmanager.secretAccessor" "$GCLOUD_LOG"
-  done
+  grep -q '^artifacts repositories describe sa8227601 ' "$GCLOUD_LOG" || fail "$MODE: registry not checked before build"
   if [ "$MODE" = demo ]; then
-    grep -q '^secrets add-iam-policy-binding yuempuenma-demo-password ' "$GCLOUD_LOG"
-  elif grep -q '^secrets add-iam-policy-binding yuempuenma-demo-password ' "$GCLOUD_LOG"; then
-    echo 'FAIL: granted optional demo secret in non-demo mode'; exit 1
+    grep -q 'DEMO_USER_PASSWORD=sa8227601-demo-password:latest' "$GCLOUD_LOG" || fail 'demo secret missing in demo mode'
+    grep -q -- '--update-env-vars NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=true ' "$GCLOUD_LOG" || fail 'demo mode did not turn demo seeding on'
+  else
+    if grep -q 'DEMO_USER_PASSWORD' "$GCLOUD_LOG"; then fail 'demo secret used in non-demo mode'; fi
+    # A plain run must not touch SEED_DEMO_DATA: it would undo an earlier --demo.
+    if grep -q 'SEED_DEMO_DATA' "$GCLOUD_LOG"; then fail 'non-demo run overwrote SEED_DEMO_DATA'; fi
   fi
-  case "$MODE" in
-    first_run)
-      grep -q -- '--edition=enterprise' "$GCLOUD_LOG"
-      grep -q '^sql users create ' "$GCLOUD_LOG" ;;
-    partial) grep -q '^sql users set-password ' "$GCLOUD_LOG" ;;
-    rerun)
-      if grep -Eq '^(secrets create|sql users (create|set-password)) ' "$GCLOUD_LOG"; then
-        echo 'FAIL: rerun replaced existing credentials'; exit 1
-      fi ;;
-  esac
-  if [ -f "$TEST_STATE_DIR/sql-pass" ]; then
-    db_pass="$(cat "$TEST_STATE_DIR/sql-pass")"
-    db_url="$(cat "$TEST_STATE_DIR/payload-yuempuenma-database-url")"
-    case "$db_url" in
-      "postgresql://yuempuenma:${db_pass}@"*) ;;
-      *) echo 'FAIL: DB password differs from secret'; exit 1 ;;
-    esac
-    if grep -Fq "$db_pass" "$TEST_STATE_DIR/output"; then
-      echo 'FAIL: DB password leaked to output'; exit 1
-    fi
+  # The portal/TA provision infrastructure and IAM; the script must only update.
+  if grep -Eq '^(services enable|sql |secrets (create|delete|update|versions|add-iam-policy-binding)|iam |projects |artifacts repositories create|run (jobs|services) (create|deploy|add-iam-policy-binding))' "$GCLOUD_LOG"; then
+    fail "$MODE: script created infrastructure or changed IAM"
   fi
-  for secret_file in "$TEST_STATE_DIR"/payload-*; do
-    [ -f "$secret_file" ] || continue
-    secret_value="$(cat "$secret_file")"
-    if [ -n "$secret_value" ] && grep -Fq "$secret_value" "$TEST_STATE_DIR/output"; then
-      echo 'FAIL: secret payload leaked to output'; exit 1
-    fi
-  done
-  echo "PASS: $MODE (exit, migration gate, credential handling, secret redaction)"
+  echo "PASS: $MODE (SHA tag, digest pinning, migration gate, no infra/IAM changes)"
 done
+
+# --- Guards: refused before any gcloud call --------------------------------------
+check_refused() {
+  local name="$1"; shift
+  export GCLOUD_LOG="$TEST_STATE_DIR/guard-$name.log"
+  if env "$@" bash "$DEPLOY_SCRIPT" > /dev/null 2>&1; then fail "guard $name: deploy was not refused"; fi
+  [ ! -s "$GCLOUD_LOG" ] || fail "guard $name: gcloud called before refusing"
+  echo "PASS: guard $name"
+}
+export STUB_MODE=release
+check_refused wrong-project PROJECT_ID=someone-elses-project
+check_refused wrong-region REGION=us-central1
+check_refused stale-tag IMAGE_TAG=3333333333333333333333333333333333333333
+check_refused dirty-tree STUB_DIRTY=' M server/src/index.ts'
+check_refused untracked STUB_DIRTY='?? scratch.txt'
+check_refused not-origin-main STUB_ORIGIN_SHA=4444444444444444444444444444444444444444
+
+# --- A missing demo secret stops the deploy before anything is built -------------
+export GCLOUD_LOG="$TEST_STATE_DIR/missing-secret.log"
+if STUB_MISSING_SECRET=sa8227601-demo-password bash "$DEPLOY_SCRIPT" --demo > /dev/null 2>&1; then
+  fail 'missing secret: deploy was not refused'
+fi
+if grep -q '^docker ' "$GCLOUD_LOG"; then fail 'missing secret: image built anyway'; fi
+echo 'PASS: missing demo secret refused before build'
+
+export GCLOUD_LOG="$TEST_STATE_DIR/missing-repo.log"
+if STUB_MISSING_REPO=1 bash "$DEPLOY_SCRIPT" > /dev/null 2>&1; then fail 'missing registry: deploy was not refused'; fi
+if grep -q '^docker ' "$GCLOUD_LOG"; then fail 'missing registry: image built anyway'; fi
+echo 'PASS: missing Artifact Registry repository refused before build'
+
 # --- Dry run must not call gcloud at all ------------------------------------------
 export GCLOUD_LOG="$TEST_STATE_DIR/dry-run-calls"
 DRY_RUN=1 bash "$DEPLOY_SCRIPT" --demo > "$TEST_STATE_DIR/dry-run-output"
-if [ -f "$GCLOUD_LOG" ]; then
-  echo 'FAIL: dry run called gcloud'; exit 1
-fi
+[ ! -f "$GCLOUD_LOG" ] || fail 'dry run called gcloud or docker'
 echo 'PASS: dry run makes no gcloud calls'

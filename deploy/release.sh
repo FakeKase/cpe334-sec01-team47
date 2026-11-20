@@ -10,7 +10,9 @@
 #
 # INPUT (environment variables)
 #   PROJECT_ID, REGION, IMAGE_TAG   required (IMAGE_TAG = full 40-char commit SHA)
-#   SERVICE_NAME, MIGRATE_JOB_NAME  optional (default: yuempuenma, yuempuenma-migrate)
+#   TEAM                            optional team id (default: sa8227601)
+#   SERVICE_NAME, MIGRATE_JOB_NAME  optional (default: $TEAM, $TEAM-migrate)
+#   REPO_NAME                       optional Artifact Registry repo (default: $TEAM)
 #   ROLLBACK                        true | false (default false)
 #   GITHUB_ENV                      when set, SERVICE_URL / DEPLOYED_IMAGE are
 #                                   appended so later workflow steps can use them
@@ -28,11 +30,7 @@
 #   - update-traffic (--to-latest)   : https://cloud.google.com/sdk/gcloud/reference/run/services/update-traffic
 #   - Artifact Registry images       : https://cloud.google.com/sdk/gcloud/reference/artifacts/docker/images/describe
 #
-# ⭐ CHANGE ME — groups using another tech stack must review:
-#   # CHANGE ME: default SERVICE_NAME / MIGRATE_JOB_NAME and the image path
-#   #            `yuempuenma/yuempuenma` (Artifact Registry repo / image name)
-#   # CHANGE ME: how the migration is run (the Cloud Run job is created by
-#   #            deploy/deploy.sh step 10 — change the command there)
+#   The migration command lives on the Cloud Run job; deploy/deploy.sh sets it.
 # ==============================================================================
 set -euo pipefail
 
@@ -40,21 +38,24 @@ set -euo pipefail
 # 1. Read and validate inputs (fail before any GCP call)
 # ------------------------------------------------------------------------------
 : "${PROJECT_ID:?Required}" "${REGION:?Required}" "${IMAGE_TAG:?Required}"
-# CHANGE ME: default resource names.
-SERVICE_NAME="${SERVICE_NAME:-yuempuenma}"
-MIGRATE_JOB_NAME="${MIGRATE_JOB_NAME:-yuempuenma-migrate}"
+TEAM="${TEAM:-sa8227601}"
+SERVICE_NAME="${SERVICE_NAME:-$TEAM}"
+MIGRATE_JOB_NAME="${MIGRATE_JOB_NAME:-$TEAM-migrate}"
+REPO_NAME="${REPO_NAME:-$TEAM}"
 ROLLBACK="${ROLLBACK:-false}"
 [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid image tag.' >&2; exit 1; }
 [[ "$ROLLBACK" == true || "$ROLLBACK" == false ]] || { echo 'Invalid rollback mode.' >&2; exit 1; }
 
 # ------------------------------------------------------------------------------
 # 2. Find the image and pin it by digest
-#    CHANGE ME: `yuempuenma/yuempuenma` = <Artifact Registry repo>/<image name>.
+#    Path = <Artifact Registry repo>/<image name>; the image is named after
+#    the service (deploy.sh and deploy.yml push it there).
 # ------------------------------------------------------------------------------
-IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/yuempuenma/yuempuenma:$IMAGE_TAG"
+IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME"
+IMAGE="$IMAGE_PATH:$IMAGE_TAG"
 # Resolve to a digest so the job and service run the exact same immutable image.
 DIGEST_IMAGE="$(gcloud artifacts docker images describe "$IMAGE" --project="$PROJECT_ID" --format='value(image_summary.fully_qualified_digest)')"
-[[ "$DIGEST_IMAGE" == "$REGION-docker.pkg.dev/$PROJECT_ID/yuempuenma/yuempuenma@sha256:"* ]] || { echo 'Image digest not found.' >&2; exit 1; }
+[[ "$DIGEST_IMAGE" == "$IMAGE_PATH@sha256:"* ]] || { echo 'Image digest not found.' >&2; exit 1; }
 
 # ------------------------------------------------------------------------------
 # 3. Database migration (normal release only; `--wait` blocks until it finishes)

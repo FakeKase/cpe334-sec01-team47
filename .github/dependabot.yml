@@ -1,0 +1,26 @@
+# Weekly update PRs, opened against `staging` like every other change.
+# When Dependabot bumps the oven/bun image, bump `packageManager` in package.json
+# (CI's Bun) in the same PR so the image and CI keep running the same version.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: staging
+
+  # The root bun.lock covers both workspaces (client, server).
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: staging
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/, /server, /client]
+    schedule:
+      interval: weekly
+    target-branch: staging
