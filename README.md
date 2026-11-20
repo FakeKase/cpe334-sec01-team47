@@ -29,7 +29,7 @@ CPE 334 Software Engineering, Section 01, Team 47. Code identifiers, the databas
 | `Dockerfile`, `server/Dockerfile`, `client/Dockerfile`, `client/nginx.conf`, `docker-compose.yml` | Container images (all built from the repository root) and the local stack |
 | `compose-db.yml` | The development database: PostgreSQL alone, for running the API and tests on the host (`bun run db:up`) |
 | `turbo.json`, `AGENTS.md` | Task runner configuration and the shared instructions for AI coding agents (`CLAUDE.md` imports it) |
-| `.github/` | `workflows/pr-test-res.yml` and the scripts it uses |
+| `.github/` | Workflows (`ci-docker.yml` CI, `deploy.yml` deploy, `pr-test-res.yml` PR test report and its scripts) and the Dependabot configuration |
 
 ## Run, seed and test locally
 
@@ -66,14 +66,18 @@ CPE 334 Software Engineering, Section 01, Team 47. Code identifiers, the databas
 
 ## Deployment (Lab 5, SR-02)
 
-The target is Google Cloud Run with Cloud SQL and Secret Manager, deployed from `main` by GitHub Actions. The pieces that exist today are the container files, `docker-compose.yml`, `deploy/deploy.sh` (one-time setup and first deploy; run it with `DRY_RUN=1` first), `deploy/release.sh` (checks the image, runs the migration job, updates the service), `deploy/smoke_test.py` (checks `/api/health`, `/api/ready`, `/` and `/api/categories`), `deploy/teardown.sh` (deletes the cloud resources after the course) and their offline tests in `deploy/tests/`. `server/docker-entrypoint.sh` only starts the server; migrations run in a separate job.
+The target is Google Cloud Run with Cloud SQL and Secret Manager in the shared course project `cpe-se-course-2026` (team id `sa8227601`), deployed from `main` by GitHub Actions. The portal and the TA provision the infrastructure and IAM; the scripts only update it.
 
-Not in the repository yet: the pull request workflow `ci-docker.yml` (required check `test-and-docker`), the deploy workflow `deploy.yml` and the Dependabot configuration. The existing `pr-test-res.yml` posts test results on pull requests once a workflow named `CI` exists.
+- `.github/workflows/ci-docker.yml` (workflow `CI`, job `test-and-docker`) runs on every pull request into `main` or `staging`: deploy-script tests, server and client tests, migrate and seed, and the production Docker build. It uploads the Vitest results that `pr-test-res.yml` posts as a PR comment.
+- `.github/workflows/deploy.yml` runs on every merge into `main`: CI, then build and push the image tagged with the commit SHA, then `deploy/release.sh` (checks the image, runs the migration job, updates the service), then `deploy/smoke_test.py` (checks `/api/health`, `/api/ready`, `/` and `/api/categories`).
+- `deploy/deploy.sh` is the manual equivalent. It only runs from a clean checkout of `origin/main`; it previews by default, and `DRY_RUN=0` makes it deploy.
+- `deploy/tests/` holds offline tests for the scripts, and `.github/dependabot.yml` keeps the pinned actions up to date.
+- `server/docker-entrypoint.sh` only starts the server; migrations run in a separate job.
 
-When the deploy workflow is added, it expects:
+The deploy workflow expects:
 
 - A GitHub environment `demo`, deployable only from `main`, with the variables `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER` and `WIF_SERVICE_ACCOUNT`. `SMOKE_EMAIL` (variable) and `SMOKE_PASSWORD` (secret) are optional for the sign-in check; set both or neither.
 - A ruleset on `main`: Enforcement Active, empty bypass list, require a pull request, require the status check `test-and-docker`, and require branches to be up to date.
 - Image tags equal to the full commit SHA, deployment by image digest, and Workload Identity Federation instead of JSON keys.
 
-Passwords for the demo accounts must come from Secret Manager or environment variables, never from code. **Rollback:** Actions, Deploy demo, Run workflow on `main`, then enter the full 40-character commit SHA of the last release that worked. The database schema is not rolled back, so keep migrations additive. **Cost:** Cloud SQL is billed for every hour it exists (about USD 14 to 18 per month with light use). Create a budget alert first and run `deploy/teardown.sh` when the course ends.
+Passwords for the demo accounts must come from Secret Manager or environment variables, never from code. **Rollback:** Actions, Deploy demo, Run workflow on `main`, then enter the full 40-character commit SHA of the last release that worked. The database schema is not rolled back, so keep migrations additive. **Cost:** Cloud SQL is billed for every hour it exists (about USD 14 to 18 per month with light use). Ask a TA to pause or clean up the shared resources; do not tear them down yourself.

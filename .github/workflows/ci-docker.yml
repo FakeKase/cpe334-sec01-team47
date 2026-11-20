@@ -1,0 +1,202 @@
+# ##############################################################################
+# CI — tests, deploy-script checks and the production Docker build
+# ##############################################################################
+# WHAT THIS WORKFLOW DOES
+#   Runs the project's checks and is used in two ways:
+#     1) directly on every pull request to `main` or `staging` (and manually), and
+#     2) as a REUSABLE workflow called by deploy.yml (`workflow_call`) so the
+#        deploy only starts after these checks pass.
+#   Steps: offline deploy-script tests -> backend tests (real PostgreSQL service)
+#          -> frontend tests + build -> verify the production Dockerfile builds.
+#   It does NOT deploy anything.
+#
+# ⚠️ DO NOT RENAME:
+#   - job id : test-and-docker (required status check for the `main` ruleset)
+#   - workflow name `CI` and the artifacts `server-test-results` /
+#     `client-test-results`: pr-test-res.yml listens for this workflow by name
+#     and turns the artifacts into the PR test-report comment.
+#
+# REFERENCES
+#   - Workflow syntax      : https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions
+#   - Reusable workflows   : https://docs.github.com/en/actions/sharing-automations/reusing-workflows
+#   - Service containers   : https://docs.github.com/en/actions/using-containerized-services/about-service-containers
+#   - Concurrency          : https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+#   - Pin actions to a SHA : https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions
+#   - Docker layer cache   : https://docs.docker.com/build/cache/backends/gha/
+# ##############################################################################
+
+name: CI
+
+# ------------------------------------------------------------------------------
+# Triggers
+#   workflow_call     : lets deploy.yml reuse this workflow (do not remove).
+#   pull_request      : checks every PR into main or staging before merge.
+#   workflow_dispatch : manual "Run workflow" button.
+# ------------------------------------------------------------------------------
+on:
+  workflow_call:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+# Least privilege: this workflow only needs to read the repository.
+permissions:
+  contents: read
+
+# A new push to a PR cancels that PR's older run. Every other run (a deploy
+# calling this workflow, a manual run) gets its own group, so one deploy can
+# never cancel the CI of another. When reused, github.run_id is the caller's.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # ⚠️ Job id must stay `test-and-docker`.
+  test-and-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # --------------------------------------------------------------------------
+    # Temporary PostgreSQL used only by the tests. Throw-away CI values, not
+    # real secrets. Credentials and DB name match server/test/.env.test; the
+    # name must contain `_test` or server/test/globalSetup.ts refuses it.
+    # --------------------------------------------------------------------------
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: yuempuenma
+          POSTGRES_PASSWORD: yuempuenma
+          POSTGRES_DB: inventory_test
+        ports:
+          - 5432:5432
+        # Wait until the DB is healthy before the steps start.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # ------------------------------------------------------------------------
+      # 1. Get the source code
+      #    (third-party actions are pinned to a commit SHA; the comment shows the
+      #     version. Dependabot keeps them updated — see .github/dependabot.yml)
+      # ------------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # ------------------------------------------------------------------------
+      # 2. Language runtimes
+      #    Bun installs packages and runs the server; the client's vitest runs
+      #    on Node (its bin has a node shebang).
+      # ------------------------------------------------------------------------
+      # Same Bun as `packageManager` in the root package.json.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      # Python is only needed for the deploy smoke-test unit tests below.
+      - name: Setup Python 3.14
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      # ------------------------------------------------------------------------
+      # 3. Deploy scripts: syntax check + offline tests (NO access to GCP)
+      #    ⭐ IMPORTANT: guards deploy.sh / release.sh / smoke_test.py so a broken
+      #    script is caught before it can break a deployment.
+      # ------------------------------------------------------------------------
+      - name: Check deployment scripts without accessing GCP
+        run: |
+          bash -n deploy/deploy.sh deploy/release.sh
+          bash deploy/tests/test_deploy_stub.sh
+          bash deploy/tests/test_release_stub.sh
+          python3 -m unittest discover -s deploy/tests -p 'test_smoke.py'
+
+      # ------------------------------------------------------------------------
+      # 4. Dependencies: one Bun workspace (client, server), one root bun.lock
+      # ------------------------------------------------------------------------
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+
+      # ------------------------------------------------------------------------
+      # 5. Backend: generate -> typecheck -> test -> migrate + seed
+      #    ⭐ IMPORTANT: a failing test fails the job (and therefore the deploy).
+      #    `bun run test` loads test/.env.test and its globalSetup migrates the
+      #    DB. The JSON report feeds the PR comment (pr-test-res.yml) and is
+      #    uploaded even when tests fail. The seed runs after the tests so its
+      #    rows can't affect them; it proves the Cloud Run job's command works.
+      # ------------------------------------------------------------------------
+      - name: Generate Prisma client & Typecheck Backend
+        working-directory: ./server
+        run: |
+          bun run generate
+          bun run typecheck
+
+      - name: Test Backend (Vitest)
+        working-directory: ./server
+        env:
+          DATABASE_URL: postgresql://yuempuenma:yuempuenma@localhost:5432/inventory_test?schema=public
+        run: bun run test --reporter=default --reporter=json --outputFile=test-results/vitest.json
+
+      - name: Upload backend test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-test-results
+          path: server/test-results/vitest.json
+          if-no-files-found: ignore
+
+      - name: Migrate & Seed Backend (same command as the Cloud Run job)
+        working-directory: ./server
+        env:
+          DATABASE_URL: postgresql://yuempuenma:yuempuenma@localhost:5432/inventory_test?schema=public
+          ADMIN_PASSWORD: ci-admin-password
+          BCRYPT_COST: "4"
+        run: bunx prisma migrate deploy && bun run prisma:seed
+
+      # ------------------------------------------------------------------------
+      # 6. Frontend: test -> production build
+      # ------------------------------------------------------------------------
+      - name: Test Frontend (Vitest)
+        working-directory: ./client
+        run: bun run test --reporter=default --reporter=json --outputFile=test-results/vitest.json
+
+      - name: Upload frontend test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: client-test-results
+          path: client/test-results/vitest.json
+          if-no-files-found: ignore
+
+      - name: Build Frontend
+        working-directory: ./client
+        run: bun run build
+
+      # ------------------------------------------------------------------------
+      # 7. Make sure the production image still builds (image is not pushed here)
+      #    Layers go to the GitHub Actions cache, so the deploy job that runs
+      #    right after this one (deploy.yml) rebuilds from cache, not from zero.
+      # ------------------------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Verify Unified Production Dockerfile Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          tags: yuempuenma:ci
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
