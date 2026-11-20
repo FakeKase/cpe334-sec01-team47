@@ -29,7 +29,7 @@ CPE 334 Software Engineering, Section 01, Team 47. Code identifiers, the databas
 | `Dockerfile`, `server/Dockerfile`, `client/Dockerfile`, `client/nginx.conf`, `docker-compose.yml` | Container images (all built from the repository root) and the local stack |
 | `compose-db.yml` | The development database: PostgreSQL alone, for running the API and tests on the host (`bun run db:up`) |
 | `turbo.json`, `AGENTS.md` | Task runner configuration and the shared instructions for AI coding agents (`CLAUDE.md` imports it) |
-| `.github/` | `workflows/pr-test-res.yml` and the scripts it uses |
+| `.github/` | Workflows (`ci-docker.yml` CI, `deploy.yml` deploy, `pr-test-res.yml` PR test report and its scripts) and the Dependabot configuration |
 
 ## Run, seed and test locally
 
