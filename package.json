@@ -1,7 +1,18 @@
 {
 	"name": "cpe334-team47",
 	"private": true,
+	"workspaces": [
+		"client",
+		"server"
+	],
 	"scripts": {
+		"dev": "turbo run dev",
+		"build": "turbo run build",
+		"typecheck": "turbo run typecheck",
+		"test": "turbo run test",
+		"test:e2e": "playwright test",
+		"db:up": "docker compose -f compose-db.yml up -d --wait && docker compose -f compose-db.yml exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d inventory_test -qtc \"\" 2>/dev/null || createdb -U \"$POSTGRES_USER\" inventory_test'",
+		"db:down": "docker compose -f compose-db.yml down",
 		"prepare": "husky"
 	},
 	"devDependencies": {
@@ -11,7 +22,8 @@
 		"husky": "^9.1.7",
 		"lint-staged": "^17.6.0",
 		"oxfmt": "^0.78.0",
-		"oxlint": "^1.93.0"
+		"oxlint": "^1.93.0",
+		"turbo": "^2.11.11"
 	},
 	"lint-staged": {
 		"*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
@@ -19,5 +31,6 @@
 			"oxfmt"
 		],
 		"*.{json,jsonc,css}": "oxfmt --no-error-on-unmatched-pattern"
-	}
+	},
+	"packageManager": "bun@1.4.4"
 }

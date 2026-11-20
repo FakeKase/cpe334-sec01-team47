@@ -194,7 +194,7 @@ stateDiagram-v2
   a release can migrate before traffic moves (Lab 5 recommendation). The `CHECK` constraint is added by
   editing the generated migration SQL. The Sprint 1 `init` migration omits the columns marked `(S2)` in the
   ER diagram; Sprint 2 adds them in an additive migration.
-- Local setup: `docker compose up -d db`, then `bunx prisma migrate dev` (development) or
+- Local setup: `bun run db:up` (Postgres from `compose-db.yml`), then `bunx prisma migrate dev` (development) or
   `bunx prisma migrate deploy` (CI, Docker, Cloud Run job).
 - Tests use a separate database (`DATABASE_URL` pointing to `…/inventory_test`). It is migrated once per test
   run, and tables are truncated between API test files.
