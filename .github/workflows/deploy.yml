@@ -4,6 +4,7 @@
 # WHAT THIS WORKFLOW DOES
 #   On every push to `main` (or a manual run) it:
 #     1) runs the CI workflow (ci-docker.yml, job `test-and-docker`) first,
+#        which also fills the Docker layer cache this job builds from,
 #     2) authenticates to Google Cloud WITHOUT a key file (Workload Identity
 #        Federation),
 #     3) builds + pushes the image tagged with the commit SHA,
@@ -26,8 +27,8 @@
 #   - Optional login smoke test: variable SMOKE_EMAIL + secret SMOKE_PASSWORD
 #     (set both or neither).
 #   - The cloud resources (Cloud SQL, secrets, service account, Artifact
-#     Registry, Cloud Run service/job) must already exist: create them once with
-#     deploy/deploy.sh. This workflow only UPDATES them.
+#     Registry, Cloud Run service/job) are provisioned by the portal/TA.
+#     This workflow only UPDATES them.
 #
 # REFERENCES
 #   - Workflow syntax / reusable workflows:
@@ -43,10 +44,10 @@
 #       https://cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration
 #   - Concurrency: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 #
-# ⭐ CHANGE ME — groups using another tech stack must edit (marked below):
-#   # CHANGE ME: SERVICE_NAME / MIGRATE_JOB_NAME / image path (sa8227601)
-#   # CHANGE ME: build step if your image is not built from the root Dockerfile
-#   # CHANGE ME: Python setup + smoke test if you use another smoke test
+# NAMES
+#   Every resource name comes from TEAM below: the service and the image are
+#   named $TEAM, the migration job $TEAM-migrate, the Artifact Registry repo
+#   $TEAM (deploy/release.sh derives the same defaults).
 # ##############################################################################
 
 name: Deploy demo
@@ -106,9 +107,8 @@ jobs:
       # ⚠️ Variable names GCP_PROJECT_ID / GCP_REGION must not change.
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
-      # CHANGE ME: names of your Cloud Run service and migration job.
-      SERVICE_NAME: sa8227601
-      MIGRATE_JOB_NAME: sa8227601-migrate
+      # Team id; release.sh derives the service, job and image names from it.
+      TEAM: sa8227601
       # Image tag = commit SHA (or the rollback SHA that was typed in).
       IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
       ROLLBACK: ${{ inputs.image_tag != '' }}
@@ -146,16 +146,27 @@ jobs:
 
       # ------------------------------------------------------------------------
       # 4. Build and push the image (skipped for rollbacks)
-      #    CHANGE ME: image path `.../sa8227601/sa8227601` must match the
-      #    Artifact Registry repo and service names (see deploy/release.sh).
+      #    Path = <region>-docker.pkg.dev/<project>/<repo $TEAM>/<image $TEAM>,
+      #    the same one deploy/release.sh looks up. Layers come from the cache
+      #    the CI job above just wrote, so this is mostly cache hits.
       # ------------------------------------------------------------------------
+      - name: Log Docker in to Artifact Registry
+        if: env.ROLLBACK != 'true'
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Set up Docker Buildx
+        if: env.ROLLBACK != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
       - name: Build and push image
         if: env.ROLLBACK != 'true'
-        run: |
-          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
-          IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/sa8227601/sa8227601:$IMAGE_TAG"
-          docker build --tag "$IMAGE" .
-          docker push "$IMAGE"
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          tags: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.TEAM }}/${{ env.TEAM }}:${{ env.IMAGE_TAG }}
+          push: true
+          cache-from: type=gha
 
       # ------------------------------------------------------------------------
       # 5. Verify image -> run migration job -> update the Cloud Run service
@@ -167,7 +178,6 @@ jobs:
 
       # ------------------------------------------------------------------------
       # 6. Smoke test the live URL
-      #    CHANGE ME: Python setup + script if you use another smoke test.
       # ------------------------------------------------------------------------
       - name: Setup Python 3.14
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0

@@ -7,10 +7,13 @@
 #     release     : build -> push -> migrate job -> service update, by digest
 #     job-fail    : migration fails -> script exits 1, service NOT updated
 #     demo        : --demo adds the demo password secret to the migration job
-#     guards      : wrong project, wrong region, non-main branch -> refused
-#                   before any gcloud call
+#     guards      : wrong project/region, stale IMAGE_TAG, dirty tree, HEAD not
+#                   origin/main -> refused before any gcloud call; a missing
+#                   secret -> refused before anything is built
+#     detached    : a detached HEAD at origin/main is allowed
 #   It also checks that the script never creates infrastructure or IAM (the
-#   portal/TA own those) and that DRY_RUN=1 makes zero gcloud calls.
+#   portal/TA own those), merges env vars/secrets instead of replacing them,
+#   and that DRY_RUN=1 makes zero gcloud calls.
 #
 # HOW TO RUN (repo root, needs bash):  bash deploy/tests/test_deploy_stub.sh
 #   Prints `PASS: <scenario>` per scenario; any `FAIL ...` exits non-zero.
@@ -35,6 +38,7 @@ cat > "$TEST_STATE_DIR/bin/gcloud" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$GCLOUD_LOG"
 case "$*" in
+  "secrets describe ${STUB_MISSING_SECRET:-none} "*) exit 1 ;;
   'artifacts docker images describe '*) echo "$STUB_DIGEST" ;;
   'run jobs execute '*) [ "$STUB_MODE" != job-fail ] ;;
   'run services describe '*) echo https://sa8227601-stub.example.invalid ;;
@@ -47,8 +51,11 @@ STUB
 cat > "$TEST_STATE_DIR/bin/git" <<'STUB'
 #!/usr/bin/env bash
 case "$*" in
-  'branch --show-current') echo "${STUB_BRANCH:-main}" ;;
   'rev-parse HEAD') echo "$STUB_SHA" ;;
+  'rev-parse origin/main') echo "${STUB_ORIGIN_SHA:-$STUB_SHA}" ;;
+  'status --porcelain') printf '%s' "${STUB_DIRTY:-}" ;;
+  'fetch --quiet origin main') ;;
+  # deploy.sh must not depend on a branch name (detached HEAD is allowed).
   *) exit 1 ;;
 esac
 STUB
@@ -60,7 +67,7 @@ unset PROJECT_ID REGION IMAGE_TAG
 fail() { echo "FAIL $*"; exit 1; }
 
 # --- Release scenarios -----------------------------------------------------------
-for MODE in release job-fail demo; do
+for MODE in release job-fail demo detached; do
   export STUB_MODE="$MODE" GCLOUD_LOG="$TEST_STATE_DIR/gcloud-$MODE.log"
   args=()
   if [ "$MODE" = demo ]; then args+=(--demo); fi
@@ -73,6 +80,8 @@ for MODE in release job-fail demo; do
   grep -q "^docker build .*--tag ${PREFIX}:${SHA} " "$GCLOUD_LOG" || fail "$MODE: image not tagged with commit SHA"
   grep -q "^run jobs update sa8227601-migrate --image ${STUB_DIGEST} " "$GCLOUD_LOG" || fail "$MODE: job not pinned to digest"
   grep -q 'bunx prisma migrate deploy && bun run prisma:seed' "$GCLOUD_LOG" || fail "$MODE: wrong migration command"
+  if grep -Eq -- '--set-(secrets|env-vars)' "$GCLOUD_LOG"; then fail "$MODE: replaces provisioned env vars/secrets"; fi
+  grep -q '^secrets describe sa8227601-database-url ' "$GCLOUD_LOG" || fail "$MODE: secrets not checked before use"
   if [ "$MODE" = job-fail ]; then
     if grep -q '^run services update ' "$GCLOUD_LOG"; then fail 'service updated after migration failure'; fi
   else
@@ -84,7 +93,7 @@ for MODE in release job-fail demo; do
     fail 'demo secret used in non-demo mode'
   fi
   # The portal/TA provision infrastructure and IAM; the script must only update.
-  if grep -Eq '^(services enable|sql |secrets |iam |projects |artifacts repositories create|run (jobs|services) (create|deploy|add-iam-policy-binding))' "$GCLOUD_LOG"; then
+  if grep -Eq '^(services enable|sql |secrets (create|delete|update|versions|add-iam-policy-binding)|iam |projects |artifacts repositories create|run (jobs|services) (create|deploy|add-iam-policy-binding))' "$GCLOUD_LOG"; then
     fail "$MODE: script created infrastructure or changed IAM"
   fi
   echo "PASS: $MODE (SHA tag, digest pinning, migration gate, no infra/IAM changes)"
@@ -101,8 +110,18 @@ check_refused() {
 export STUB_MODE=release
 check_refused wrong-project PROJECT_ID=someone-elses-project
 check_refused wrong-region REGION=us-central1
-check_refused non-main STUB_BRANCH=feature/x
 check_refused stale-tag IMAGE_TAG=3333333333333333333333333333333333333333
+check_refused dirty-tree STUB_DIRTY=' M server/src/index.ts'
+check_refused untracked STUB_DIRTY='?? scratch.txt'
+check_refused not-origin-main STUB_ORIGIN_SHA=4444444444444444444444444444444444444444
+
+# --- A missing demo secret stops the deploy before anything is built -------------
+export GCLOUD_LOG="$TEST_STATE_DIR/missing-secret.log"
+if STUB_MISSING_SECRET=sa8227601-demo-password bash "$DEPLOY_SCRIPT" --demo > /dev/null 2>&1; then
+  fail 'missing secret: deploy was not refused'
+fi
+if grep -q '^docker ' "$GCLOUD_LOG"; then fail 'missing secret: image built anyway'; fi
+echo 'PASS: missing demo secret refused before build'
 
 # --- Dry run must not call gcloud at all ------------------------------------------
 export GCLOUD_LOG="$TEST_STATE_DIR/dry-run-calls"
