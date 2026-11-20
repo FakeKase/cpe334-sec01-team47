@@ -1,211 +1,96 @@
-# GCP and CI/CD Guide for YuemPuenMa
+# CI/CD and Deployment Guide for YuemPuenMa
 
-This guide explains how the YuemPuenMa reference is deployed to Google Cloud and released through GitHub Actions. The TA team verified it on 21 October 2026 (Asia/Bangkok). For a short hands-on version, start with [First Practice](gcp-first-lab.md). Automatic deployment and rollback are in [Auto Deploy](auto-deploy.md).
+How YuemPuenMa is tested, released and deployed to Google Cloud Run (Lab 5, SR-02). It describes the scripts and workflows in this repository as they are. Local setup is in the [README](../README.md#run-seed-and-test-locally).
 
-Account, billing, and credit status change over time. Check your own account and project before you use any value from this guide.
+## 1. Where it runs
 
-## 1. What the reference contains
+The app runs in the shared course project `cpe-se-course-2026`, region `asia-southeast1`, under the team id `sa8227601`. The course portal and the TA provision every cloud resource and all IAM. Nothing in this repository creates, deletes or grants anything. The scripts only build an image and update resources that already exist.
 
-| Part | Technology and files |
-|---|---|
-| Frontend | React 18, TypeScript, Vite, Bootstrap; `client/` |
-| Backend | Express, TypeScript, Prisma 5; `server/` |
-| Database | PostgreSQL; Docker Compose uses PostgreSQL 16 |
-| Cloud container | `Dockerfile` at the root, UI and API in one container on port 3000, running as the non-root `node` user |
-| Local environment | `docker-compose.yml`: database, migration and seed, backend, frontend |
-| Cloud setup | `deploy/deploy.sh`: Cloud Run, Cloud SQL for PostgreSQL 16, Artifact Registry, Cloud Build, Secret Manager, runtime service account |
-| CI | `.github/workflows/ci-docker.yml` |
-| CD | `.github/workflows/deploy.yml` and `deploy/release.sh` |
-| Health and readiness | `/api/health` and `/api/ready` |
+| Resource | Name | Created by |
+|---|---|---|
+| Cloud Run service | `sa8227601` | portal |
+| Cloud Run job (migrate + seed) | `sa8227601-migrate` | portal |
+| Artifact Registry repository / image | `sa8227601` / `sa8227601` | portal / the pipeline pushes |
+| Cloud SQL for PostgreSQL | `sa8227601-pg` | portal |
+| Secrets | `sa8227601-database-url`, `sa8227601-admin-password`, `sa8227601-demo-password` (only for `--demo`) | portal |
+| Runtime service account | `sa8227601-runner` | portal |
+| GitHub environment `demo` and Workload Identity Federation | variables `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER`, `WIF_SERVICE_ACCOUNT` | portal, once it has reviewed `main` |
 
-`deploy.sh` runs in this order: enable APIs, prepare the registry, database, secrets, and IAM, build the image, run the migration job, then deploy the service once the job succeeds.
+One container serves the API (Elysia on Bun) and the built React app on port 3000, as the non-root `bun` user (root `Dockerfile`). Health is `/api/health`; readiness, which checks the database, is `/api/ready`.
 
-The script's defaults are region `asia-southeast1`, Cloud SQL `db-f1-micro` with a 10 GB SSD, and Cloud Run with minimum 0 and maximum 3 instances, 1 CPU, and 512 MiB of memory. These are the values in the source. They have not been checked against your quota, needs, or real cost.
+## 2. CI: `.github/workflows/ci-docker.yml`
 
-## 2. Before you start
+Workflow `CI`, job `test-and-docker` (the required check for `main`). It runs on every pull request into `main` or `staging`, on a manual run, and from `deploy.yml` before every release:
 
-1. Make sure your computer has enough free space for dependencies, Docker layers, and the database before installing anything.
-2. Check Node.js, npm, Docker, and Docker Compose for the option you choose. The reference images and CI use Node.js 24; locally, use Node.js 24 and PostgreSQL 15 or later.
-3. Check the Google account you will use and its real billing or credit status. Having a billing account is not enough.
-4. Check the target project, your IAM permissions, the organization policies, and the region before enabling APIs or creating resources.
-5. Set a budget and choose who receives the alerts before you deploy (Student Guide 1.5). Choose an alerts-only budget. An alert notifies you and does not stop spending. Budgets & caps also offers spend cap enforcement, which pauses services when the cap is reached, so your app could stop during class or grading. The Student Guide recommends alerts only.
+1. syntax-checks and runs the offline tests of the deploy scripts (`deploy/tests/`, no GCP access);
+2. installs the Bun workspace from the root `bun.lock`, with the Bun version from `packageManager`;
+3. server: Prisma generate, typecheck, tests against a PostgreSQL 16 service (`inventory_test`), then the migration job's own command (`bunx prisma migrate deploy && bun run prisma:seed`);
+4. client: tests (Vitest under Node) and the production build;
+5. builds the production image without pushing it. The layers go to the GitHub Actions cache, so the deploy that follows rebuilds from cache.
 
-## 3. Run it locally before going to the cloud
+The Vitest results are uploaded as `server-test-results` and `client-test-results`. `pr-test-res.yml` turns them into the test-report comment on the pull request.
 
-### Option A: Docker Compose
+## 3. First-time setup with the portal
 
-```bash
-docker compose up --build -d
-docker compose ps
-curl --fail http://localhost:3000/api/health
-curl --fail http://localhost:3000/api/ready
-```
+1. Merge the release pull request that brings `ci-docker.yml` and `deploy.yml` to `main`. The first **Deploy demo** run then fails at "Validate deployment settings", before any GCP call, because `demo` has no variables yet. Nothing in GCP changes.
+2. In the portal, choose Lab 5 and run "Recheck the latest main". The portal reads `main` at a commit SHA and proposes a diff for the team to review and submit as a pull request (into `staging`, then `main`). Review that diff like any other pull request. It must keep the Bun migration command, port 3000, the `--update-*` flags and the `origin/main` guard in `deploy/deploy.sh`.
+3. Once the portal has configured `demo`, run **Actions → Deploy demo → Run workflow** on `main` with `image_tag` empty. Check that the smoke test step passed.
 
-Open the UI at `http://localhost:5173` and sign in with the seed accounts for this environment.
+## 4. Releases: `.github/workflows/deploy.yml`
 
-Compose has fallback passwords and turns on the demo seed for practice on localhost. Never use this file to run a public service. Compose stores data in a Docker volume. Do not delete the volume if you want to keep your practice data.
+Every push to `main` (every merged release pull request):
 
-### Option B: Node.js with the UI and API separate
+1. runs CI (above);
+2. signs in to Google Cloud through Workload Identity Federation. There is no key file anywhere;
+3. builds and pushes `asia-southeast1-docker.pkg.dev/cpe-se-course-2026/sa8227601/sa8227601:<full commit SHA>`;
+4. runs `deploy/release.sh`, which resolves the tag to its `@sha256` digest, points the migration job at that digest and runs it, and only if the job succeeds points the service at the same digest with 100% of traffic;
+5. runs `deploy/smoke_test.py` against the public URL;
+6. writes the tag, digest and URL to the run summary.
 
-Prepare a PostgreSQL database and set `DATABASE_URL` in `server/.env` to match it. Then use two terminals:
+Releases are queued and never cancelled mid-run, so a migration is never interrupted.
 
-```bash
-cd server
-cp .env.example .env
-npm ci
-npx prisma migrate deploy
-npm run prisma:seed
-npm run dev
-```
+## 5. Manual deploy: `deploy/deploy.sh`
+
+The same build → migrate → update sequence, run by hand. Normal releases should go through `deploy.yml`.
 
 ```bash
-cd client
-cp .env.example .env
-npm ci
-npm run dev
+DRY_RUN=1 bash deploy/deploy.sh          # prints every command, calls nothing (the default)
+DRY_RUN=0 bash deploy/deploy.sh          # really deploys
+DRY_RUN=0 bash deploy/deploy.sh --demo   # also seeds the demo Borrowers
 ```
 
-Always edit `.env` before you migrate or seed, and never share a real database with the test suite. Do not commit `.env` or any credential.
+Before it calls GCP, the script refuses to continue unless:
 
-## 4. What CI does
+- the project is `cpe-se-course-2026` and the region is `asia-southeast1`;
+- the working tree is clean, including untracked files, since they would end up in the image;
+- `HEAD` is exactly `origin/main` after a fetch. A detached checkout of that commit is fine.
 
-A Pull Request into `main` runs CI directly. A push to `main` runs the same CI from the deploy workflow before the release. CI:
+It then checks that the Artifact Registry repository, the service, the job and every secret it is about to use exist, before building anything. Env vars and secrets are merged into what the portal set (`--update-secrets`, `--update-env-vars`), never replaced. `SEED_DEMO_DATA` is only written with `--demo`, so a plain run does not undo an earlier `--demo`.
 
-1. starts a PostgreSQL 16 service on the GitHub runner;
-2. uses Node.js 24 and Python 3.14, and tests the deploy scripts offline, without reaching GCP;
-3. backend: `npm ci`, migrate, seed, and `npm test`;
-4. frontend: `npm ci`, `npm test`, and `npm run build`; and
-5. builds the Dockerfile with the UI and API together.
+## 6. Rollback
 
-After CI passes on `main`, a separate CD job pushes the image, runs the migration, deploys, and runs the public smoke test. See [Auto Deploy](auto-deploy.md). The Playwright end-to-end tests have not been run against the cloud.
+1. Open the last successful **Deploy demo** run and copy the commit image tag from its summary.
+2. **Actions → Deploy demo → Run workflow** on `main`, and enter that full 40-character SHA as `image_tag`.
+3. Check that the tests, build and migration were skipped, that the deploy and the smoke test passed, and that the serving revision in Cloud Run uses the older digest.
+4. To go forward again, run the workflow with the newer release's SHA. An empty `image_tag` would rebuild the current `main` instead of reusing the image you checked.
 
-## 5. Prepare the first deploy
+A rollback changes only the image. The database schema is not rolled back, so migrations must stay additive: add new columns and tables first, and remove old ones only in a later release.
 
-For a new environment, always check billing, the budget, the project, IAM, and the source first.
+## 7. Smoke test
 
-Read the commands the script will run, without calling GCP:
+`deploy/smoke_test.py <url>` is read-only. It checks `/api/health`, `/api/ready` (database connected), `/` (the app's HTML) and `/api/categories` (migration and seed ran). Optionally, with the variable `SMOKE_EMAIL` and the secret `SMOKE_PASSWORD` set in the `demo` environment (both or neither), it also signs in, calls `/api/auth/me` and signs out. Do not use the Custodian (administrator) account for this.
 
-```bash
-DRY_RUN=1 PROJECT_ID=YOUR_PROJECT_ID REGION=asia-southeast1 bash deploy/deploy.sh
-```
-
-A dry run prints both the check commands and the create commands so you can follow the flow. It does not check IAM, quota, billing, or price, and it does not prove the resources can be created.
-
-Points to know about the script before you run it for real:
-
-- It hides `--password` arguments and does not print the initial administrator or demo passwords. Use a version that has this fix.
-- The first deploy from `deploy.sh` tags the image `latest`. Releases from `deploy.yml` tag it with the commit SHA, so roll back only to SHA tags.
-- The runtime service account gets Secret Manager Secret Accessor only on this app's secrets, not on the whole project. Keep it that way when you add secrets.
-- `--allow-unauthenticated` makes the HTTP endpoint public. Check the app's own authentication and your organization's policy first.
-- The demo seed is off by default. `--demo` loads sample data only when the database is empty, with a generated password stored in Secret Manager. Demo accounts are allowed in your project because Lab 6 UAT needs them, but their passwords must never be in code or shown on screen.
-- Cloud SQL costs money for as long as it exists. Check the price for your configuration and region.
-
-Once these are clear, run the deploy and record who ran it, the time, the commit, the image digest, the migration execution, and the revision you got.
-
-## 6. Suggested order for the first lab
-
-Use GitHub Actions, Cloud Shell, and the one deploy script. No Terraform, Kubernetes, or Jenkins.
-
-### Part A: look at CI before using the cloud
-
-1. Open a Pull Request in your repository and go to the Checks tab.
-2. Walk through Backend Test, Frontend Test and Build, and Docker Build.
-3. Read PASS from the real run. The offline script tests only check the deployment flow. They do not test the cloud.
-
-### Part B: deploy once by hand
-
-Do this only after billing is ready and you have read Section 5. Open Cloud Shell with the account for this lab, select your own project, and clone **your own repository**:
-
-```bash
-git clone https://github.com/YOUR_ORG/YOUR_REPO.git
-cd YOUR_REPO
-```
-
-Check the account and project in Cloud Shell every time:
-
-```bash
-gcloud auth list
-gcloud config get-value project
-```
-
-Read the commands first (creates nothing):
-
-```bash
-DRY_RUN=1 PROJECT_ID=YOUR_PROJECT_ID bash deploy/deploy.sh
-```
-
-When billing, the budget, IAM, and public access are ready, deploy to **your own project only**:
-
-```bash
-PROJECT_ID=YOUR_PROJECT_ID bash deploy/deploy.sh
-```
-
-This creates paid resources, stores passwords in Secret Manager, and opens a public HTTP endpoint. Do not run it while the Free Trial is still pending.
-
-Open the URL you get, check health and readiness, open Secret Manager on your own to see the initial password, sign in and change it, test the main flow with your team, and record the real results.
-
-### Part C: add CD once Part B works
-
-Automate the same build, migration, and deploy sequence in the pipeline. Set up GitHub-to-GCP authentication with Workload Identity Federation first. Never hand out service account keys, and do not give the pipeline full rights over IAM, secrets, and databases just so it can run the provisioning script again. See [Auto Deploy](auto-deploy.md).
-
-## 7. Acceptance checklist used by the TA team
-
-- Health passes and readiness connects to the database, on both the authenticated and the public URL.
-- The UI loads and the API works from the public Cloud Run URL without localhost.
-- Each role can sign in through the browser, and a forced password change works.
-- A requester can create a ticket and open My Tickets and the ticket details, and ticket ownership is enforced by the API.
-- IT staff can choose an owner, record actions taken, and resolve and close a ticket.
-- Dashboard counts and permission boundaries are correct for every role.
-- Existing sessions and attachments (same bytes and hash) are still there after a rollback and after the current image is restored, and a signed-in user stays signed in after a reload.
-- A new commit is deployed through the pipeline, and the revision receiving traffic uses the image from that commit.
-- A rollback has been practised, with the migration limitation stated (the schema and data are not rolled back).
-
-End-to-end specs exist in `e2e/`, but there is no root package manifest or Playwright config, and the specs contain localhost URLs and fixed test passwords. Before they can verify the cloud deployment, they need a runner, test accounts, and a base URL.
-
-## 8. Troubleshooting and shutting down
+## 8. Troubleshooting
 
 | Symptom | What to check |
 |---|---|
-| Account sign-up stuck at step 2 | Read the browser message and check free disk space. The first attempt showed FILE_ERROR_NO_SPACE, though that was not proven to be the only cause. |
-| Free Trial pending | Read the billing message. Activation can place a small authorization hold on the card, which is released later. A prepayment request is a separate account requirement. Do not pay again before you know the result of the first payment, and do not keep signing up with other accounts or cards. Follow the instructor's access plan or contact Google Cloud Billing support. |
-| Health passes but readiness fails | Check database connectivity, the secret mapping, and the migration logs. Do not copy secret values. |
-| The migration job fails | Check the job execution and its logs. The script stops with an error before it deploys the service. |
-| The deploy is refused | Read the IAM, quota, or organization policy error first. Do not add broad permissions to experiment. |
-| End-to-end login fails | Check the seed mode, the test account, and mustChangePassword. Passwords in the specs do not work in the cloud. |
+| "Validate deployment settings" fails | The `demo` environment or one of its four variables is missing. The portal sets them up (section 3). |
+| `deploy.sh` says the tree is not clean or `HEAD` is not `origin/main` | Commit or stash, `git pull`, and run it from `main`. It only deploys reviewed code. |
+| `deploy.sh` says a secret or the registry is missing | Ask the TA. The portal provisions them. |
+| The migration job fails | Read the job logs (`deploy.sh` prints the `gcloud logging read` command). The service has not been touched. |
+| Health passes but readiness fails | Database connectivity, the `DATABASE_URL` secret mapping, and the migration job's last execution. Do not copy secret values into logs or chat. |
+| The job fails with a permission error on a secret | The runtime service account cannot read that secret. Ask the TA; do not grant IAM yourself. |
 
-`deploy/teardown.sh` deletes the database and the other resources. Before you run it, check the project and the list of resources, back up anything you must keep, and confirm the deletion. The script's "Teardown completed" message does not prove everything was deleted, because each command is allowed to fail. Check the remaining resources and billing afterwards.
+## 9. Cost and shutting down
 
-## 9. Cost estimate
-
-Per project, for the configuration used here: Singapore, zonal `db-f1-micro` with a 10 GiB SSD, and Cloud Run with 1 CPU and 512 MiB billed per request, with light classroom use. Prices were checked on 21 October 2026. This is an estimate, not a bill.
-
-From https://cloud.google.com/sql/pricing with Singapore (asia-southeast1) selected:
-
-- db-f1-micro: USD 0.0147 per hour × 730 = USD 10.731 per month
-- SSD: USD 0.000326027 per GiB-hour × 10 × 730 = USD 2.380 per month
-- Cloud SQL compute and disk together: USD 13.111 per month, before backups and network
-- Backups: USD 0.000153425 per GiB-hour, charged on the size actually stored. An average of 1 to 10 GiB of backups adds about USD 0.112 to 1.120 per month.
-- Cloud Run and Cloud Build may fall within the free tier with light use if the billing account's free quota is not used up. That is not guaranteed for every project.
-- Secret Manager: 3 versions fit within the free 6 versions per account if no other project uses them. Artifact Registry: 0.5 GiB free per account, then about USD 0.10 per GiB-month.
-
-Light-use budget per project: USD 14 to 18 per month, or about 490 to 630 baht at an assumed 35 baht per USD (not a confirmed exchange rate). This excludes tax, credits, account discounts, and heavy traffic or builds.
-
-| Time Cloud SQL and its 10 GiB SSD exist | USD, SQL compute and disk only | Baht at an assumed 35 per USD |
-|---|---:|---:|
-| 8 hours | 0.1437 | about 5 |
-| 24 hours | 0.4310 | about 15 |
-| 7 days | 3.0173 | about 106 |
-| 730 hours | 13.1110 | about 459 |
-
-The table does not include backups, Cloud Run, builds, the registry, storage, or network. For a monthly budget, use USD 14 to 18 per set of resources, not per visitor. A team that shares one set of resources shares its database cost, while traffic adds up with use. The short-period figures apply only if you delete the resources afterwards. Closing the browser does not stop Cloud SQL, and a stopped instance can still be charged for storage, backups, and IP addresses.
-
-If a USD 300 Free Trial is active and its credit has not expired, eligible charges come out of the credit first. Check your own balance and expiry date. The TA team's account status says nothing about yours.
-
-Other pricing pages: https://cloud.google.com/run/pricing ; https://cloud.google.com/build/pricing ; https://cloud.google.com/artifact-registry/pricing ; https://cloud.google.com/secret-manager/pricing
-
-When the lab or the course ends:
-
-1. Check your own project ID and save the data and evidence you need for your submission.
-2. Read the list of resources to be deleted and confirm before you run teardown, because the database is deleted too.
-3. Check what is left, especially Cloud SQL, retained backups, images in Artifact Registry, and Cloud Build buckets.
-4. Check billing after it updates. An alerts-only budget does not stop spending.
+Cloud SQL is billed for every hour it exists, even with no traffic, and the course credits are shared by every team. Cloud Run scales to zero (minimum 0, maximum 1 instance). There is no teardown script: ask the TA to pause or delete the team's resources. Never delete shared resources yourself.

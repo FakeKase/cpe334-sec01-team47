@@ -6,12 +6,12 @@
 # Ref: https://docs.docker.com/reference/dockerfile/
 #
 # ⭐ CHANGE ME (groups using another tech stack):
-#   # CHANGE ME: base image (oven/bun:1-alpine), install commands,
+#   # CHANGE ME: base image (oven/bun:1.4.4-alpine), install commands,
 #   #            copied folders (prisma, src), PORT and CMD.
 # ==============================================================================
 
 # CHANGE ME: base image for your backend runtime.
-FROM oven/bun:1-alpine
+FROM oven/bun:1.4.4-alpine
 WORKDIR /app/server
 # Prisma requires openssl on alpine.
 RUN apk add --no-cache openssl

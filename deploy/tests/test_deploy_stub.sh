@@ -6,10 +6,11 @@
 #   for the shared course project, asserting on the recorded commands:
 #     release     : build -> push -> migrate job -> service update, by digest
 #     job-fail    : migration fails -> script exits 1, service NOT updated
-#     demo        : --demo adds the demo password secret to the migration job
+#     demo        : --demo adds the demo password secret and SEED_DEMO_DATA=true
+#                   to the migration job; a plain run never writes SEED_DEMO_DATA
 #     guards      : wrong project/region, stale IMAGE_TAG, dirty tree, HEAD not
 #                   origin/main -> refused before any gcloud call; a missing
-#                   secret -> refused before anything is built
+#                   secret or registry -> refused before anything is built
 #     detached    : a detached HEAD at origin/main is allowed
 #   It also checks that the script never creates infrastructure or IAM (the
 #   portal/TA own those), merges env vars/secrets instead of replacing them,
@@ -39,6 +40,7 @@ cat > "$TEST_STATE_DIR/bin/gcloud" <<'STUB'
 printf '%s\n' "$*" >> "$GCLOUD_LOG"
 case "$*" in
   "secrets describe ${STUB_MISSING_SECRET:-none} "*) exit 1 ;;
+  'artifacts repositories describe '*) [ "${STUB_MISSING_REPO:-}" != 1 ] ;;
   'artifacts docker images describe '*) echo "$STUB_DIGEST" ;;
   'run jobs execute '*) [ "$STUB_MODE" != job-fail ] ;;
   'run services describe '*) echo https://sa8227601-stub.example.invalid ;;
@@ -87,10 +89,14 @@ for MODE in release job-fail demo detached; do
   else
     grep -q "^run services update sa8227601 --image ${STUB_DIGEST} .*--port 3000 " "$GCLOUD_LOG" || fail "$MODE: service not updated by digest on port 3000"
   fi
+  grep -q '^artifacts repositories describe sa8227601 ' "$GCLOUD_LOG" || fail "$MODE: registry not checked before build"
   if [ "$MODE" = demo ]; then
     grep -q 'DEMO_USER_PASSWORD=sa8227601-demo-password:latest' "$GCLOUD_LOG" || fail 'demo secret missing in demo mode'
-  elif grep -q 'DEMO_USER_PASSWORD' "$GCLOUD_LOG"; then
-    fail 'demo secret used in non-demo mode'
+    grep -q -- '--update-env-vars NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=true ' "$GCLOUD_LOG" || fail 'demo mode did not turn demo seeding on'
+  else
+    if grep -q 'DEMO_USER_PASSWORD' "$GCLOUD_LOG"; then fail 'demo secret used in non-demo mode'; fi
+    # A plain run must not touch SEED_DEMO_DATA: it would undo an earlier --demo.
+    if grep -q 'SEED_DEMO_DATA' "$GCLOUD_LOG"; then fail 'non-demo run overwrote SEED_DEMO_DATA'; fi
   fi
   # The portal/TA provision infrastructure and IAM; the script must only update.
   if grep -Eq '^(services enable|sql |secrets (create|delete|update|versions|add-iam-policy-binding)|iam |projects |artifacts repositories create|run (jobs|services) (create|deploy|add-iam-policy-binding))' "$GCLOUD_LOG"; then
@@ -122,6 +128,11 @@ if STUB_MISSING_SECRET=sa8227601-demo-password bash "$DEPLOY_SCRIPT" --demo > /d
 fi
 if grep -q '^docker ' "$GCLOUD_LOG"; then fail 'missing secret: image built anyway'; fi
 echo 'PASS: missing demo secret refused before build'
+
+export GCLOUD_LOG="$TEST_STATE_DIR/missing-repo.log"
+if STUB_MISSING_REPO=1 bash "$DEPLOY_SCRIPT" > /dev/null 2>&1; then fail 'missing registry: deploy was not refused'; fi
+if grep -q '^docker ' "$GCLOUD_LOG"; then fail 'missing registry: image built anyway'; fi
+echo 'PASS: missing Artifact Registry repository refused before build'
 
 # --- Dry run must not call gcloud at all ------------------------------------------
 export GCLOUD_LOG="$TEST_STATE_DIR/dry-run-calls"

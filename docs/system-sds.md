@@ -395,6 +395,7 @@ flowchart LR
   survives restarts and redeploys (NFR-07).
 - **Release identity:** the image is tagged with the full commit SHA and deployed by digest. `/api/health`
   returns the same SHA (NFR-10).
-- **Cost control:** budget alert first, Cloud Run scales to zero, smallest Cloud SQL tier, storage
-  auto-increase off, `deploy/teardown.sh` after the course.
+- **Cost control:** Cloud Run scales to zero (minimum 0, maximum 1 instance). Cloud SQL is provisioned
+  and sized by the course portal in the shared project `cpe-se-course-2026`, whose credits every team
+  shares. Pausing or deleting resources goes through the TA; there is no teardown script.
 - **Not required:** separate cloud staging environment, custom domain, load balancer (Lab 5 §4.2).
