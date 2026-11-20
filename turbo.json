@@ -1,0 +1,12 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"ui": "stream",
+	"envMode": "loose",
+	"tasks": {
+		"generate": { "cache": false },
+		"dev": { "dependsOn": ["generate"], "cache": false, "persistent": true },
+		"build": { "dependsOn": ["generate"], "outputs": ["dist/**"], "env": ["VITE_*"] },
+		"typecheck": { "dependsOn": ["generate"] },
+		"test": { "dependsOn": ["generate"], "cache": false }
+	}
+}

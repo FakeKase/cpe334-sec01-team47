@@ -32,3 +32,4 @@ docs/*.pdf
 
 # Server test env holds fake values only
 !server/test/.env.test
+.turbo/
