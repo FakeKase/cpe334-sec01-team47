@@ -11,7 +11,7 @@
 		"typecheck": "turbo run typecheck",
 		"test": "turbo run test",
 		"test:e2e": "playwright test",
-		"db:up": "docker compose -f compose-db.yml up -d --wait",
+		"db:up": "docker compose -f compose-db.yml up -d --wait && docker compose -f compose-db.yml exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d inventory_test -qtc \"\" 2>/dev/null || createdb -U \"$POSTGRES_USER\" inventory_test'",
 		"db:down": "docker compose -f compose-db.yml down",
 		"prepare": "husky"
 	},

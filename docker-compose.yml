@@ -1,3 +1,8 @@
+# Production-like stack: the API, nginx serving the built client, a one-off migrate and seed job, and Postgres,
+# all built from the Dockerfiles with NODE_ENV=production. Use it to check the images and for the E2E run in STS §1.
+#   docker compose up --build
+# It is not the development environment. For `bun run dev` use compose-db.yml (`bun run db:up`). Both stacks
+# publish :5432, and this one also takes :3000 and :5173 from the dev servers, so stop one before starting the other.
 services:
   db:
     image: postgres:16-alpine

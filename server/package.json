@@ -4,6 +4,7 @@
 	"scripts": {
 		"dev": "bun --watch src/index.ts",
 		"start": "bun src/index.ts",
+		"generate": "prisma generate",
 		"typecheck": "tsc --noEmit",
 		"test": "bun --env-file=test/.env.test --bun vitest run",
 		"prisma:seed": "bun prisma/seed.ts"

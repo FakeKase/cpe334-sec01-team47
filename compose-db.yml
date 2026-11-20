@@ -1,6 +1,8 @@
-# Postgres only, for running the server and tests on the host.
-#   bun run db:up   (bun run db:down stops it and keeps the data volume)
+# Development database: Postgres only, for `bun run dev` and the tests on the host.
+#   bun run db:up    starts it and creates inventory_test if it is missing
+#   bun run db:down  stops it and keeps the data volume
 # Matches DATABASE_URL in server/.env.example and server/test/.env.test.
+# docker-compose.yml is the production-like stack. Both publish :5432, so run one at a time.
 name: yuempuenma-dev
 
 services:
@@ -13,23 +15,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuempuenma}
       POSTGRES_DB: ${POSTGRES_DB:-yuempuenma}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - pg_dev_data:/var/lib/postgresql/data
-    configs:
-      - source: create_test_db
-        target: /docker-entrypoint-initdb.d/10-create-test-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-configs:
-  # Runs only on first start (empty volume). API tests use this database.
-  create_test_db:
-    content: |
-      CREATE DATABASE inventory_test;
 
 volumes:
   pg_dev_data:

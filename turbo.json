@@ -3,9 +3,10 @@
 	"ui": "stream",
 	"envMode": "loose",
 	"tasks": {
-		"dev": { "cache": false, "persistent": true },
-		"build": { "outputs": ["dist/**"], "env": ["VITE_*"] },
-		"typecheck": {},
-		"test": { "cache": false }
+		"generate": { "cache": false },
+		"dev": { "dependsOn": ["generate"], "cache": false, "persistent": true },
+		"build": { "dependsOn": ["generate"], "outputs": ["dist/**"], "env": ["VITE_*"] },
+		"typecheck": { "dependsOn": ["generate"] },
+		"test": { "dependsOn": ["generate"], "cache": false }
 	}
 }

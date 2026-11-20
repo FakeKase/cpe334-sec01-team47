@@ -5,7 +5,7 @@
 #   Builds ONE image that contains the API (Elysia on Bun) AND the built React SPA and
 #   serves both on port 3000. Cloud Run (and CI) build/run exactly this image.
 #   (client/Dockerfile and server/Dockerfile are separate, used only by
-#    docker-compose for local development.)
+#    docker-compose.yml, the local production-like stack.)
 #
 # STRUCTURE (3 stages)
 #   Stage 1  client-builder -> compiles the frontend (Vite)

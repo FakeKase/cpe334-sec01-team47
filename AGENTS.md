@@ -6,7 +6,7 @@ YuemPuenMa: equipment borrowing system for the CPE equipment room. Bun workspace
 
 Run from the repository root. Scripts live in each package; the root ones delegate through `turbo run`.
 
-- `bun run db:up` / `bun run db:down`: Postgres 16 from `compose-db.yml` on `:5432`. Its first start also creates `inventory_test`. `db:down` keeps the data volume.
+- `bun run db:up` / `bun run db:down`: the development Postgres 16 from `compose-db.yml` on `:5432`. `db:up` also creates `inventory_test` if it is missing; `db:down` keeps the data volume. `docker-compose.yml` is the production-like stack on the same ports; run one at a time.
 - `bun run dev`: API on `:3000` and Vite on `:5173` (proxies `/api`). Needs `server/.env` (copy `server/.env.example`).
 - `bun run test`: both suites. One package: `bunx turbo run test --filter cpe334-team47-server` (or `-client`).
 - `bun run typecheck`, `bun run build`.
