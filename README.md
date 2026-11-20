@@ -55,7 +55,7 @@ CPE 334 Software Engineering, Section 01, Team 47. Code identifiers, the databas
 | [`docs/system-sds.md`](docs/system-sds.md) | Part C: architecture, data model, UI, API conventions, roles, authentication, configuration |
 | [`docs/sprints/plan.md`](docs/sprints/plan.md) | Part D: the three-sprint plan |
 | [`docs/sprints/sprint-1/`](docs/sprints/sprint-1/) | Part E: Sprint 1 contracts (F-01 to F-05), the test specification (`sts.md`) and the Definition of Done |
-| [`docs/gcp-first-lab.md`](docs/gcp-first-lab.md), [`docs/gcp-cicd-guide.md`](docs/gcp-cicd-guide.md), [`docs/auto-deploy.md`](docs/auto-deploy.md) | Google Cloud setup, CI/CD and automatic deployment guides for Lab 5 |
+| [`docs/gcp-cicd-guide.md`](docs/gcp-cicd-guide.md) | CI, releases, manual deploy, rollback and troubleshooting on the shared course project (Lab 5) |
 
 ## Team workflow
 

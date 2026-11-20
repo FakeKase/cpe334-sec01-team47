@@ -20,7 +20,7 @@ set -euo pipefail
 #   Registry, Cloud SQL, secrets, the runtime service account, the migration
 #   job and the Cloud Run service. This script never creates those; it only:
 #     1 checks HEAD is a clean checkout of origin/main
-#     2 checks the service, job and secrets it uses exist
+#     2 checks the registry, service, job and secrets it uses exist
 #     3 builds the root Dockerfile and pushes it tagged with the commit SHA
 #     4 points the migration job at that image (by digest) and runs it
 #     5 points the service at the same digest and sends it 100% of traffic
@@ -30,6 +30,8 @@ set -euo pipefail
 # ⭐ IMPORTANT
 #   - Env vars and secrets are MERGED (--update-*) into what the portal set up,
 #     never replaced, so values provisioned outside this script survive.
+#     SEED_DEMO_DATA is only written with --demo (as true); a plain run leaves
+#     whatever the job already has, the same as deploy/release.sh.
 #   - If the migration job fails the script stops before the service changes.
 #   - Run from the REPO ROOT (it builds the root Dockerfile).
 #   - Offline test: deploy/tests/test_deploy_stub.sh
@@ -116,11 +118,18 @@ echo "=================================================================="
 # ------------------------------------------------------------------------------
 JOB_SECRET_NAMES=("$SECRET_DB_URL" "$SECRET_ADMIN_PASS")
 JOB_SECRETS="DATABASE_URL=${SECRET_DB_URL}:latest,ADMIN_PASSWORD=${SECRET_ADMIN_PASS}:latest"
+JOB_ENV="NODE_ENV=production,TZ=Asia/Bangkok"
 if [ "$SEED_DEMO_DATA" = "true" ]; then
   JOB_SECRET_NAMES+=("$SECRET_DEMO_PASS")
   JOB_SECRETS="${JOB_SECRETS},DEMO_USER_PASSWORD=${SECRET_DEMO_PASS}:latest"
+  JOB_ENV="${JOB_ENV},SEED_DEMO_DATA=true"
 fi
 if [ "$DRY_RUN" != "1" ]; then
+  # Checked before the build so a missing repo fails in seconds, not at `docker push`.
+  gcloud artifacts repositories describe "$REPO_NAME" --location "$REGION" --project "$PROJECT_ID" >/dev/null || {
+    echo "Artifact Registry repository ${REPO_NAME} is missing. Ask the TA/portal to provision it." >&2
+    exit 1
+  }
   gcloud run services describe "$SERVICE_NAME" --project "$PROJECT_ID" --region "$REGION" >/dev/null
   gcloud run jobs describe "$MIGRATE_JOB_NAME" --project "$PROJECT_ID" --region "$REGION" >/dev/null
   for secret in "${JOB_SECRET_NAMES[@]}"; do
@@ -153,7 +162,7 @@ run_cmd gcloud run jobs update "$MIGRATE_JOB_NAME" \
   --service-account "$SA_EMAIL" \
   --add-cloudsql-instances "$SQL_CONN_NAME" \
   --update-secrets "$JOB_SECRETS" \
-  --update-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=${SEED_DEMO_DATA}" \
+  --update-env-vars "$JOB_ENV" \
   --command "sh" \
   --args "-c,bunx prisma migrate deploy && bun run prisma:seed" \
   --max-retries 1 \
