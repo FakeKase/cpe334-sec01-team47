@@ -33,7 +33,9 @@ The Vitest results are uploaded as `server-test-results` and `client-test-result
 ## 3. First-time setup with the portal
 
 1. Merge the release pull request that brings `ci-docker.yml` and `deploy.yml` to `main`. The first **Deploy demo** run then fails at "Validate deployment settings", before any GCP call, because `demo` has no variables yet. Nothing in GCP changes.
-2. In the portal, choose Lab 5 and run "Recheck the latest main". The portal reads `main` at a commit SHA and proposes a diff for the team to review and submit as a pull request (into `staging`, then `main`). Review that diff like any other pull request. It must keep the Bun migration command, port 3000, the `--update-*` flags and the `origin/main` guard in `deploy/deploy.sh`.
+2. In the portal, choose Lab 5 and run "Recheck the latest main". The portal reads `main` at a commit SHA and proposes a diff for the team to review and submit as a pull request (into `staging`, then `main`). Review that diff like any other pull request. It must keep the Bun migration command (`bunx prisma migrate deploy && bun run prisma:seed`), port 3000, and the team's checks in `deploy/deploy.sh` (clean tree, `origin/main`, registry and secret pre-flight).
+
+`deploy/deploy.sh` deliberately keeps the course kit's layout (steps 9, 10 and 11, the `run_cmd` helper, the name variables and the `--set-*` flags). The portal checks that layout, and it rejected a rewritten version as "does not match the Starter Kit structure". Add new behaviour as extra lines inside that layout, not by restructuring the file.
 3. Once the portal has configured `demo`, run **Actions → Deploy demo → Run workflow** on `main` with `image_tag` empty. Check that the smoke test step passed.
 
 ## 4. Releases: `.github/workflows/deploy.yml`
@@ -63,9 +65,9 @@ Before it calls GCP, the script refuses to continue unless:
 
 - the project is `cpe-se-course-2026` and the region is `asia-southeast1`;
 - the working tree is clean, including untracked files, since they would end up in the image;
-- `HEAD` is exactly `origin/main` after a fetch. A detached checkout of that commit is fine.
+- the current branch is `main` and `HEAD` is exactly `origin/main` after a fetch.
 
-It then checks that the Artifact Registry repository, the service, the job and every secret it is about to use exist, before building anything. Env vars and secrets are merged into what the portal set (`--update-secrets`, `--update-env-vars`), never replaced. `SEED_DEMO_DATA` is only written with `--demo`, so a plain run does not undo an earlier `--demo`.
+It then checks that the Artifact Registry repository, the service, the job and every secret it is about to use exist, before building anything. As in the course kit, it sets the job's and the service's env vars and secrets to the full declared list (`--set-env-vars`, `--set-secrets`). Anything added to them outside this script is removed on the next manual deploy. `SEED_DEMO_DATA` is `true` with `--demo` and `false` otherwise, and `deploy/release.sh` keeps whatever the last manual deploy set.
 
 ## 6. Rollback
 
