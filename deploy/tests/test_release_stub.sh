@@ -35,6 +35,7 @@ STUB
 chmod +x "$TASK_TMP/gcloud"
 export ROLLBACK=false
 bash "$ROOT/deploy/release.sh"
+grep -q 'run jobs update .*--command=sh --args=-c,bunx prisma migrate deploy' "$CALL_LOG"
 grep -q 'run jobs execute .*--wait' "$CALL_LOG"
 grep -q 'run services update .*@sha256:abcdef' "$CALL_LOG"
 grep -q 'SERVICE_URL=https://demo.example.test' "$GITHUB_ENV"

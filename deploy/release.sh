@@ -30,7 +30,7 @@
 #   - update-traffic (--to-latest)   : https://cloud.google.com/sdk/gcloud/reference/run/services/update-traffic
 #   - Artifact Registry images       : https://cloud.google.com/sdk/gcloud/reference/artifacts/docker/images/describe
 #
-#   The migration command lives on the Cloud Run job; deploy/deploy.sh sets it.
+#   The migrate+seed command (step 3) must match deploy/deploy.sh step 10.
 # ==============================================================================
 set -euo pipefail
 
@@ -62,7 +62,11 @@ DIGEST_IMAGE="$(gcloud artifacts docker images describe "$IMAGE" --project="$PRO
 #    ⭐ IMPORTANT: a failure here aborts the release (set -e) — service untouched.
 # ------------------------------------------------------------------------------
 if [[ "$ROLLBACK" == false ]]; then
-  gcloud run jobs update "$MIGRATE_JOB_NAME" --image="$DIGEST_IMAGE" --project="$PROJECT_ID" --region="$REGION" --quiet
+  # Set the command on every release: the portal pre-provisions the job with a
+  # placeholder `python -c ...` command that the Bun image cannot run.
+  gcloud run jobs update "$MIGRATE_JOB_NAME" --image="$DIGEST_IMAGE" \
+    --command=sh --args='-c,bunx prisma migrate deploy && bun run prisma:seed' \
+    --project="$PROJECT_ID" --region="$REGION" --quiet
   gcloud run jobs execute "$MIGRATE_JOB_NAME" --wait --project="$PROJECT_ID" --region="$REGION" --quiet
 else
   echo 'Rollback: reuse existing image; skip tests, build, migration and seed.'
