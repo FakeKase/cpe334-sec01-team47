@@ -60,6 +60,12 @@ Run from the repository root unless noted. Local setup details are in the README
 | Deploy-script tests (no GCP access) | `bash deploy/tests/test_deploy_stub.sh` and `bash deploy/tests/test_release_stub.sh` |
 | Preview a manual deploy | `DRY_RUN=1 bash deploy/deploy.sh` |
 
+Notes on the Docker commands:
+
+- **Windows line endings.** The images are built from the working tree, and `server/docker-entrypoint.sh` must have LF line endings. With `core.autocrlf=true`, Git checks it out with CRLF and the container fails with `exec ./docker-entrypoint.sh: no such file or directory`. Clone with `git clone -c core.autocrlf=false <repo url>` (or set it before checking out) and build from that clone. CI and Cloud Run build from a Linux checkout, so they are not affected.
+- **Ports.** `docker compose up --build` publishes ports 5432 (database), 3000 (API) and 5173 (client). Stop anything else that uses them first, including the development database from `bun run db:up`.
+- **Checked on 22 Nov 2026** from a fresh clone of `staging` at `62fa7a6`: `docker build --platform linux/amd64 -t yuempuenma .` succeeded, and `docker compose up --build` applied the migration, ran the seed (migrate job exit 0) and then answered 200 on `/api/health`, `/api/ready`, `/` and `/api/categories`. The database was published on port 55432 because 5432 was already in use on that machine.
+
 ## 4. GCP resources
 
 Project `cpe-se-course-2026`, region `asia-southeast1`.
