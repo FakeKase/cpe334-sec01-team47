@@ -30,7 +30,8 @@ test("TEST-50 (AC-42): a Borrower cancels a pending request, and it stays cancel
 	await logIn(page, "BORROWER")
 	await page.goto("/my-requests")
 
-	const row = page.getByRole("listitem").filter({ hasText: "CPE-0203" }).filter({ hasText: "Pending" })
+	// Newest first, so the first CPE-0203 row is the request this test just created.
+	const row = page.getByRole("listitem").filter({ hasText: "CPE-0203" }).first()
 	await row.getByRole("button", { name: "Cancel" }).click()
 
 	const dialog = page.getByRole("dialog", { name: "Cancel request" })
@@ -47,5 +48,5 @@ test("TEST-50 (AC-42): a Borrower cancels a pending request, and it stays cancel
 	await expect(row.getByRole("button", { name: "Cancel" })).toHaveCount(0)
 
 	await page.reload()
-	await expect(page.getByRole("listitem").filter({ hasText: "CPE-0203" }).getByText("Cancelled").first()).toBeVisible()
+	await expect(row.getByText("Cancelled")).toBeVisible()
 })
