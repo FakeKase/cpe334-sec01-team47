@@ -16,7 +16,7 @@ Team 47, CPE 334 Section 01. This file is the Lab 5 record of the stack, configu
 Differences from the handout's reference path, and why:
 
 - **The GCP project was provisioned by the course portal, not created by us.** We use the shared course project `cpe-se-course-2026`, team id `sa8227601`. The portal and the TAs create the cloud resources and IAM; the repository scripts only build an image and update resources that already exist. So we have no Free Trial signup or budget alert of our own.
-- **Cloud Run runs with minimum 0 and maximum 1 instance** (the handout recommends at most 3), to keep the shared credits low.
+- **Cloud Run scaling.** `deploy/deploy.sh` sets minimum 0 and maximum 1 instance (the handout recommends at most 3) to keep the shared credits low. `deploy/release.sh`, which runs on every release, does not change scaling, so the serving revision keeps whatever was last set.
 - **The deploy workflow uses a GitHub environment named `demo`**, with variables set by the portal, instead of repository secrets set by us.
 
 ## 2. Environment variables
@@ -32,7 +32,7 @@ Every setting comes from the environment. Only placeholder values are committed,
 | `SEED_DEMO_REQUESTS` | Adds one approved demo booking on `CPE-0201` | No | `.env`; keep `false` in CI and E2E |
 | `PORT` | HTTP port of the API | No | Default `3000`; fixed in the Dockerfile and the Cloud Run `--port` |
 | `APP_TIMEZONE` | Time zone for dates | No | Default `Asia/Bangkok` |
-| `BCRYPT_COST` | Password hashing cost | No | Default `12` |
+| `BCRYPT_COST` | Bcrypt cost for the seeded accounts (only the seed reads it; the API never hashes a password) | No | Default `12` |
 | `SESSION_TTL_HOURS` | Session lifetime (NFR-04) | No | Default `8`. Sessions are stored in the database, not in the container |
 | `NODE_ENV`, `TZ` | Runtime mode and process time zone | No | Set to `production` and `Asia/Bangkok` in the image and by the deploy script |
 | `VITE_API_URL` | Client build setting: API base URL, empty means same origin | No | `client/.env.example`; empty in the production image |
@@ -49,13 +49,14 @@ Run from the repository root unless noted. Local setup details are in the README
 | Task | Command |
 |---|---|
 | Install | `bun install` |
-| Start the test database | `bun run db:up` |
+| Start the local database | `bun run db:up` (starts the dev Postgres and creates `inventory_test` if it is missing) |
 | Migrate (in `server/`) | `bunx prisma migrate deploy` |
 | Seed (in `server/`) | `bun run prisma:seed` |
 | Build | `bun run build` |
 | Unit and API tests | `bun run test` (uses `server/test/.env.test`; refuses a database whose name has no `_test`) |
-| End-to-end test | `bun run test:e2e` (needs the API and client running on a freshly seeded database) |
-| Build and run the production images with a database | `docker compose up --build` |
+| End-to-end test | `bun run test:e2e` (needs the API and client running on a freshly seeded, non-dev database with `SEED_DEMO_REQUESTS=false`; see the README step on E2E) |
+| Build the production image that Cloud Run runs (root `Dockerfile`) | `docker build --platform linux/amd64 -t yuempuenma .` |
+| Run the production-like local stack (separate server and client images plus a database; not the Cloud Run image) | `docker compose up --build` |
 | Deploy-script tests (no GCP access) | `bash deploy/tests/test_deploy_stub.sh` and `bash deploy/tests/test_release_stub.sh` |
 | Preview a manual deploy | `DRY_RUN=1 bash deploy/deploy.sh` |
 
@@ -79,11 +80,11 @@ Data (accounts, requests, sessions) lives in Cloud SQL, so it survives a restart
 ## 5. Release procedure
 
 1. **Issue and branch.** Open an Issue (label it `lab5` for Lab 5 work) and a feature or fix branch from `staging`.
-2. **Pull request into `staging`.** CI (`CI` workflow, job `test-and-docker`) runs the deploy-script tests, server and client tests against PostgreSQL 16, migrate and seed, and the production image build. The teammate reviews; the author never approves their own PR, and each review states what was checked.
+2. **Pull request into `staging`.** CI (`CI` workflow, job `test-and-docker`) runs the deploy-script tests, the server tests against PostgreSQL 16, the client tests, migrate and seed, and the production image build. The teammate reviews; the author never approves their own PR, and each review states what was checked.
 3. **Release pull request, `staging` into `main`.** CI runs again and the teammate reviews. A failed `test-and-docker` check must block the merge.
 4. **Merge into `main` deploys.** `deploy.yml` runs CI, signs in through Workload Identity Federation, builds and pushes the image tagged with the full commit SHA, runs `deploy/release.sh` (resolve the digest, run the migration job, and only if it succeeds point the service at the same digest), then runs `deploy/smoke_test.py` against the public URL.
 5. **Tag.** Tag the release commit on `main` (for example `v0.1.1`).
-6. **Manual or repeat deploy.** Actions, Deploy demo, Run workflow on `main`. Leave `image_tag` empty to rebuild `main`, or enter a full 40-character SHA to redeploy that image.
+6. **Manual or repeat deploy.** Actions, Deploy demo, Run workflow on `main`. Leave `image_tag` empty to run the full pipeline on `main` (tests, build, migration, deploy). Enter a full 40-character SHA to redeploy an existing image instead; that run skips the tests, the build and the migration and only deploys and smoke-tests.
 
 ### Which commit is running
 
@@ -93,7 +94,7 @@ Data (accounts, requests, sessions) lives in Cloud SQL, so it survives a restart
 
 ### Rollback
 
-Run **Deploy demo** on `main` with `image_tag` set to the full SHA of the last good release, check that the deploy and smoke test passed and that the serving revision uses the older digest, then run it again with the newer SHA to roll forward. A rollback changes only the image; the schema is not rolled back.
+Run **Deploy demo** on `main` with `image_tag` set to the full SHA of the last good release (this skips the tests, build and migration), check that the deploy and smoke test passed and that the serving revision uses the older digest, then run it again with the newer SHA to roll forward. A rollback changes only the image; the schema is not rolled back.
 
 ## 6. Safe use of AI agents
 
