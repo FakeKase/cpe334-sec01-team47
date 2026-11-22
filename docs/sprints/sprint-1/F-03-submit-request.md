@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-06, BR-01, BR-02, BR-03, BR-04, BR-05, BR-13, NFR-02 |
 | **Depends on** | F-01 (auth, `requireRole`), F-02 (item detail page) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1.1 (draft, 2026-11-13). See [version history](#version-history). |
+| **Contract version** | 0.1.2 (draft, 2026-11-22). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -70,11 +70,11 @@ Request:
   "item": { "id": "uuid", "assetTag": "CPE-0201", "name": "Rigol DS1054Z oscilloscope" },
   "borrower": { "id": "uuid", "displayName": "Borrower One" },
   "startDate": "2026-11-20", "dueDate": "2026-11-22", "purpose": "Signals lab experiment 4",
-  "rejectionReason": null, "decidedBy": null, "decidedAt": null,
+  "rejectionReason": null, "decidedBy": null, "decidedAt": null, "cancelledAt": null,
   "createdAt": "2026-11-10T03:15:00.000Z"
 }
 ```
-This **request resource** shape is shared by F-04 and F-05. Errors: 400, 401, 403, 404, 409 (codes above).
+This **request resource** shape is shared by F-04, F-05 and F-06 (`cancelledAt` is added by [F-06](../sprint-2/F-06-cancel-request.md#4-api)). Errors: 400, 401, 403, 404, 409 (codes above).
 
 ## 5. Data
 
@@ -110,3 +110,4 @@ Tests: see [sts.md](sts.md) (TEST-17 to TEST-27, TEST-40).
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
 | 0.1.1 | 2026-11-13 | The 300-character purpose limit applies after trimming (§2, §6, AC-17). | F-03 implementation: the old wording did not say whether surrounding spaces count. The stored value is trimmed, so the limit applies to it. |
+| 0.1.2 | 2026-11-22 | The request resource gains `cancelledAt` (§4), always `null` on creation. | F-06 (Sprint 2) records when a Borrower cancels. Additive, no existing field changes. TEST-17 now also checks the key. |

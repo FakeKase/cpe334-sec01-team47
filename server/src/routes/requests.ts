@@ -42,6 +42,9 @@ export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 		.post("/requests/:id/approve", ({ params, user }) => requests.approve(user.id, params.id), {
 			transform: requireRole("CUSTODIAN"),
 		})
+		.post("/requests/:id/cancel", ({ params, user }) => requests.cancel(user.id, params.id), {
+			transform: requireRole("BORROWER"),
+		})
 		.post("/requests/:id/reject", ({ params, body, user }) => requests.reject(user.id, params.id, body.reason), {
 			body: rejectBody,
 			transform: requireRole("CUSTODIAN"),

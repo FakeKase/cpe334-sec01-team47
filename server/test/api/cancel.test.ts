@@ -78,11 +78,11 @@ describe("cancelling an APPROVED request frees the period and the active slot (T
 		await insertRequest("CPE-0202", mine, "2026-11-20", "2026-11-22", "PENDING")
 		await insertRequest("CPE-0203", mine, "2026-11-20", "2026-11-22", "APPROVED")
 		const token = await borrowerToken()
-		expect((await create(token, "CPE-0204", "2026-11-20", "2026-11-22")).body.error.code).toBe("ACTIVE_LIMIT_REACHED")
+		expect((await create(token, "CPE-0301", "2026-11-20", "2026-11-22")).body.error.code).toBe("ACTIVE_LIMIT_REACHED")
 
 		expect((await cancel(token, first.id)).status).toBe(200)
 
-		expect((await create(token, "CPE-0204", "2026-11-20", "2026-11-22")).status).toBe(201)
+		expect((await create(token, "CPE-0301", "2026-11-20", "2026-11-22")).status).toBe(201)
 	})
 })
 
