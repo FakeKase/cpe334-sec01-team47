@@ -30,10 +30,10 @@ function validate(startDate: string, dueDate: string, purpose: string): FieldErr
 	return errors
 }
 
-const input = "min-h-11 w-full rounded-lg border bg-page px-3 text-fg"
-const border = (error?: string) => (error ? "border-error-fg" : "border-line-strong")
+export const input = "min-h-11 w-full rounded-lg border bg-page px-3 text-fg"
+export const border = (error?: string) => (error ? "border-error-fg" : "border-line-strong")
 
-function FieldError({ id, message }: { id: string; message?: string }) {
+export function FieldError({ id, message }: { id: string; message?: string }) {
 	return message ? (
 		<p id={id} className="text-sm text-error-fg">
 			{message}

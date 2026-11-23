@@ -25,6 +25,11 @@ export function ItemDetail() {
 			<div className="mt-3 flex flex-wrap items-center gap-3">
 				<h1 className="text-2xl font-semibold">{item.name}</h1>
 				<StatusBadge item={item} />
+				{user?.role === "CUSTODIAN" && (
+					<Link to={`/manage/items/${item.id}`} className={`${buttonClass("secondary")} ml-auto`}>
+						Edit
+					</Link>
+				)}
 			</div>
 
 			<dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1">

@@ -13,6 +13,7 @@ const links: Record<Role, { to: string; label: string }[]> = {
 	CUSTODIAN: [
 		{ to: "/requests", label: "Requests" },
 		{ to: "/items", label: "Catalog" },
+		{ to: "/manage/items", label: "Inventory" },
 	],
 }
 
