@@ -35,7 +35,7 @@ test("TEST-64 (AC-43, AC-48, AC-52, AC-53): a Custodian adds, edits and retires 
 	await expect(page.getByText("Item retired", { exact: true })).toBeVisible()
 	await expect(page.getByLabel("Name")).toBeDisabled()
 
-	await page.getByRole("link", { name: "Inventory" }).click()
+	await page.getByRole("link", { name: "Inventory", exact: true }).click()
 	await expect(page.getByRole("listitem").filter({ hasText: name })).toContainText("Retired")
 
 	await page.getByRole("button", { name: "Log out" }).click()
