@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-04, FR-05, NFR-01 |
 | **Depends on** | F-01 (auth), SR-01 (`Category`, `Item`, `BorrowRequest` tables, seed) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1.1 (draft, 2026-11-12). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-23). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -30,7 +30,7 @@
 
 | Case | Result |
 |---|---|
-| `RETIRED` items | Never returned by `GET /api/items`. `GET /api/items/:id` of a retired item returns 404 in Sprint 1. |
+| `RETIRED` items | Not returned by `GET /api/items`. `GET /api/items/:id` of a retired item returns 404 to a Borrower. From F-09 (Sprint 2), a Custodian gets retired items with `GET /api/items?includeRetired=true` and `GET /api/items/:id` (status `RETIRED`, `availableToday: false`); a Borrower's `includeRetired` is ignored. See [F-09 §1](../sprint-2/F-09-inventory-management.md#retired-items-in-the-views). |
 | `MAINTENANCE` items | Listed with `status: "MAINTENANCE"` and `availableToday: false` |
 | `categoryId` not a UUID | 400 `VALIDATION_ERROR` |
 | `categoryId` valid but unknown | 200 with `[]` |
@@ -114,3 +114,4 @@ Tests: see [sts.md](sts.md) (TEST-12 to TEST-16).
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
 | 0.1.1 | 2026-11-12 | Added the Sprint 2 note on overdue checkouts. No Sprint 1 behavior change. | PR #3 review. |
+| 0.2 | 2026-11-23 | Custodians can read retired items (`includeRetired=true`, detail 200). Borrower behavior unchanged; AC-10 and AC-12 still hold. Tested by F-09 AC-51 / TEST-60. | F-09 needs custodians to see and edit retired items (issue #12). |
