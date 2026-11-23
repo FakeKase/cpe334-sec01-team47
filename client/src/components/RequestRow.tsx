@@ -16,17 +16,24 @@ export function RequestRow({
 	showBorrower = false,
 	error,
 	action,
+	actionColumn = false,
 }: {
 	r: BorrowRequest
 	showBorrower?: boolean
 	/** A message for this row, for example a 409 from an action. */
 	error?: string
-	/** A button for this row (F-06 Cancel), shown at its end. */
+	/** A button for this row (F-06 Cancel). Desktop: in the last column. Mobile: on its own line below the row. */
 	action?: ReactNode
+	/** Reserve the action column on desktop even when this row has no button, so the rows line up. */
+	actionColumn?: boolean
 }) {
 	return (
 		<li
-			className={`${card} grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 p-4 md:grid-cols-[minmax(0,1fr)_14rem_8rem_auto]`}>
+			className={`${card} grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 p-4 ${
+				actionColumn
+					? "md:grid-cols-[minmax(0,1fr)_14rem_8rem_auto_6rem]"
+					: "md:grid-cols-[minmax(0,1fr)_14rem_8rem_auto]"
+			}`}>
 			<div className="col-span-2 min-w-0 md:col-span-1">
 				<p className="font-medium">{r.item.name}</p>
 				<p className="text-sm text-muted">
@@ -47,7 +54,11 @@ export function RequestRow({
 					<Alert kind="error">{error}</Alert>
 				</div>
 			)}
-			{action && <div className="col-span-full mt-1 flex justify-end">{action}</div>}
+			{action && (
+				<div className="col-span-full mt-1 flex justify-end md:col-span-1 md:col-start-5 md:row-start-1 md:mt-0">
+					{action}
+				</div>
+			)}
 		</li>
 	)
 }

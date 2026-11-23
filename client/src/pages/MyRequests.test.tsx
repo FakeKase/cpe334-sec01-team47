@@ -221,6 +221,43 @@ describe("Cancel a request (F-06, TEST-48, TEST-49, AC-42)", () => {
 		expect(calls).toEqual(["r1"])
 	})
 
+	it("TEST-49: a second cancel while the first toast is showing keeps its own toast for the full 4 s", async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true })
+		try {
+			signIn(oneOfEach)
+			server.use(
+				http.post("/api/requests/:id/cancel", ({ params }) =>
+					HttpResponse.json({
+						...oneOfEach.find((r) => r.id === params.id),
+						status: "CANCELLED",
+						cancelledAt: "2026-11-15T06:00:00.000Z",
+					})
+				)
+			)
+			renderApp("/my-requests")
+			const cancelRow = async (name: string) => {
+				const row = await rowFor(name)
+				await userEvent.click(row.getByRole("button", { name: "Cancel" }))
+				const dialog = within(await screen.findByRole("dialog", { name: "Cancel request" }))
+				await userEvent.click(dialog.getByRole("button", { name: "Cancel request" }))
+				await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+			}
+
+			await cancelRow("Item pending")
+			expect(await screen.findByText("Request cancelled")).toBeInTheDocument()
+			await act(async () => void vi.advanceTimersByTime(3000))
+			await cancelRow("Item approved")
+
+			// 5 s after the first cancel but only 2 s after the second: the first timer must not hide it.
+			await act(async () => void vi.advanceTimersByTime(2000))
+			expect(screen.getByText("Request cancelled")).toBeInTheDocument()
+			await act(async () => void vi.advanceTimersByTime(2500))
+			expect(screen.queryByText("Request cancelled")).not.toBeInTheDocument()
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
 	it("TEST-49: a 409 shows its message on the row, closes the dialog and reloads the list", async () => {
 		let loads = 0
 		signIn(async () => HttpResponse.json(++loads === 1 ? [approved] : [{ ...approved, status: "CHECKED_OUT" }]))

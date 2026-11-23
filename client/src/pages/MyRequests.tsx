@@ -20,7 +20,8 @@ export function MyRequests() {
 	const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
 	// A cancelled request replaces its row until the next load, so the list does not flash or jump.
 	const [updated, setUpdated] = useState<Record<string, BorrowRequest>>({})
-	const [toast, setToast] = useState<string>()
+	// `at` makes every toast a new value, so a second cancel while one is showing restarts the 4 s timer (as in Requests.tsx).
+	const [toast, setToast] = useState<{ message: string; at: number }>()
 
 	useEffect(() => {
 		if (!toast) return
@@ -40,7 +41,7 @@ export function MyRequests() {
 			const result = await api<BorrowRequest>(`/requests/${r.id}/cancel`, { method: "POST" })
 			setUpdated((u) => ({ ...u, [r.id]: result }))
 			setRowErrors((errs) => Object.fromEntries(Object.entries(errs).filter(([id]) => id !== r.id)))
-			setToast("Request cancelled")
+			setToast({ message: "Request cancelled", at: Date.now() })
 			closeDialog()
 		} catch (e) {
 			const { status, message } = e as ApiError
@@ -101,6 +102,7 @@ export function MyRequests() {
 										key={r.id}
 										r={r}
 										error={rowErrors[r.id]}
+										actionColumn
 										action={
 											cancellable(r) && (
 												<button type="button" className={buttonClass("secondary")} onClick={() => setCancelling(r)}>
@@ -124,7 +126,7 @@ export function MyRequests() {
 					onConfirm={() => void confirmCancel(cancelling)}
 				/>
 			)}
-			<Toast message={toast} />
+			<Toast message={toast?.message} />
 		</div>
 	)
 }

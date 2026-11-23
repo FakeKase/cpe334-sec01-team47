@@ -111,7 +111,6 @@ describe("requests that cannot be cancelled (TEST-45, AC-39)", () => {
 		expect(res.status).toBe(409)
 		expect(res.body.error.code).toBe("INVALID_TRANSITION")
 		expect(await row(r.id)).toEqual(before)
-		expect((await row(r.id)).status).toBe(status)
 	})
 })
 
