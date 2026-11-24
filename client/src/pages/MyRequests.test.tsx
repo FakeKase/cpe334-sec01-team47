@@ -141,3 +141,147 @@ describe("My requests (F-04, TEST-30, AC-26)", () => {
 		expect(await screen.findByText("Rigol DS1054Z oscilloscope")).toBeInTheDocument()
 	})
 })
+
+const withStatus = (id: string, status: string, name: string) => ({
+	...pending,
+	id,
+	status,
+	item: { id: `i-${id}`, assetTag: "CPE-0300", name },
+})
+const oneOfEach = [
+	withStatus("s1", "PENDING", "Item pending"),
+	withStatus("s2", "APPROVED", "Item approved"),
+	withStatus("s3", "REJECTED", "Item rejected"),
+	withStatus("s4", "CANCELLED", "Item cancelled"),
+	withStatus("s5", "CHECKED_OUT", "Item checked out"),
+	withStatus("s6", "RETURNED", "Item returned"),
+]
+const rowFor = async (name: string) => within((await screen.findByText(name)).closest("li")!)
+const cancelled = { ...pending, status: "CANCELLED", cancelledAt: "2026-11-15T06:00:00.000Z" }
+
+describe("Cancel a request (F-06, TEST-48, TEST-49, AC-42)", () => {
+	it("TEST-48: Cancel is offered on PENDING and APPROVED rows only", async () => {
+		signIn(oneOfEach)
+		renderApp("/my-requests")
+
+		await screen.findByText("Item pending")
+		const withButton = [] as string[]
+		for (const name of oneOfEach.map((r) => r.item.name)) {
+			if ((await rowFor(name)).queryByRole("button", { name: "Cancel" })) withButton.push(name)
+		}
+		expect(withButton).toEqual(["Item pending", "Item approved"])
+	})
+
+	it("TEST-49: Keep request closes the dialog and sends nothing", async () => {
+		signIn([pending])
+		const calls: string[] = []
+		server.use(
+			http.post("/api/requests/:id/cancel", ({ params }) => {
+				calls.push(params.id as string)
+				return HttpResponse.json(cancelled)
+			})
+		)
+		renderApp("/my-requests")
+
+		const row = await rowFor("Rigol DS1054Z oscilloscope")
+		await userEvent.click(row.getByRole("button", { name: "Cancel" }))
+		const dialog = await screen.findByRole("dialog", { name: "Cancel request" })
+		expect(within(dialog).getByText(/Rigol DS1054Z oscilloscope/)).toBeInTheDocument()
+		await userEvent.click(within(dialog).getByRole("button", { name: "Keep request" }))
+
+		await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+		expect(calls).toEqual([])
+		expect(row.getByText("Pending")).toBeInTheDocument()
+		expect(row.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
+	})
+
+	it("TEST-49: confirming posts once, disables both buttons meanwhile, then shows Cancelled, no button and a toast", async () => {
+		signIn([pending])
+		const calls: string[] = []
+		server.use(
+			http.post("/api/requests/:id/cancel", async ({ params }) => {
+				calls.push(params.id as string)
+				await delay(50)
+				return HttpResponse.json(cancelled)
+			})
+		)
+		renderApp("/my-requests")
+
+		const row = await rowFor("Rigol DS1054Z oscilloscope")
+		await userEvent.click(row.getByRole("button", { name: "Cancel" }))
+		const dialog = within(await screen.findByRole("dialog", { name: "Cancel request" }))
+		await userEvent.click(dialog.getByRole("button", { name: "Cancel request" }))
+
+		expect(dialog.getByRole("button", { name: "Cancelling…" })).toBeDisabled()
+		expect(dialog.getByRole("button", { name: "Keep request" })).toBeDisabled()
+		expect(await screen.findByText("Request cancelled")).toBeInTheDocument()
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+		expect(row.getByText("Cancelled")).toBeInTheDocument()
+		expect(row.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+		expect(calls).toEqual(["r1"])
+	})
+
+	it("TEST-49: a second cancel while the first toast is showing keeps its own toast for the full 4 s", async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true })
+		try {
+			signIn(oneOfEach)
+			server.use(
+				http.post("/api/requests/:id/cancel", ({ params }) =>
+					HttpResponse.json({
+						...oneOfEach.find((r) => r.id === params.id),
+						status: "CANCELLED",
+						cancelledAt: "2026-11-15T06:00:00.000Z",
+					})
+				)
+			)
+			renderApp("/my-requests")
+			const cancelRow = async (name: string) => {
+				const row = await rowFor(name)
+				await userEvent.click(row.getByRole("button", { name: "Cancel" }))
+				const dialog = within(await screen.findByRole("dialog", { name: "Cancel request" }))
+				await userEvent.click(dialog.getByRole("button", { name: "Cancel request" }))
+				await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+			}
+
+			await cancelRow("Item pending")
+			expect(await screen.findByText("Request cancelled")).toBeInTheDocument()
+			await act(async () => void vi.advanceTimersByTime(3000))
+			await cancelRow("Item approved")
+
+			// 5 s after the first cancel but only 2 s after the second: the first timer must not hide it.
+			await act(async () => void vi.advanceTimersByTime(2000))
+			expect(screen.getByText("Request cancelled")).toBeInTheDocument()
+			await act(async () => void vi.advanceTimersByTime(2500))
+			expect(screen.queryByText("Request cancelled")).not.toBeInTheDocument()
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it("TEST-49: a 409 shows its message on the row, closes the dialog and reloads the list", async () => {
+		let loads = 0
+		signIn(async () => HttpResponse.json(++loads === 1 ? [approved] : [{ ...approved, status: "CHECKED_OUT" }]))
+		server.use(
+			http.post("/api/requests/:id/cancel", () =>
+				HttpResponse.json(
+					{
+						error: { code: "INVALID_TRANSITION", message: "Only pending or approved requests can be cancelled." },
+					},
+					{ status: 409 }
+				)
+			)
+		)
+		renderApp("/my-requests")
+
+		const row = await rowFor("Rigol DS1054Z oscilloscope")
+		await userEvent.click(row.getByRole("button", { name: "Cancel" }))
+		const dialog = within(await screen.findByRole("dialog", { name: "Cancel request" }))
+		await userEvent.click(dialog.getByRole("button", { name: "Cancel request" }))
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("Only pending or approved requests can be cancelled.")
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+		expect(screen.queryByText("Request cancelled")).not.toBeInTheDocument()
+		await waitFor(() => expect(loads).toBe(2))
+		expect(await screen.findByText("Checked out")).toBeInTheDocument()
+	})
+})

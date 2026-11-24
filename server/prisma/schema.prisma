@@ -71,7 +71,7 @@ model Item {
   requests BorrowRequest[]
 }
 
-// Sprint 2 adds the cancel/checkout/return columns in an additive migration.
+// Sprint 2 adds the cancel/checkout/return columns in additive migrations (F-06: cancelledAt).
 // CHECK ("dueDate" >= "startDate") is appended to the init migration by hand (Prisma cannot express it).
 model BorrowRequest {
   id              String        @id @default(uuid()) @db.Uuid
@@ -84,6 +84,7 @@ model BorrowRequest {
   rejectionReason String?
   decidedById     String?       @db.Uuid
   decidedAt       DateTime?     @db.Timestamptz
+  cancelledAt     DateTime?     @db.Timestamptz
   createdAt       DateTime      @default(now()) @db.Timestamptz
   updatedAt       DateTime      @updatedAt @db.Timestamptz
 

@@ -214,3 +214,21 @@ describe("Custodian requests (F-05, AC-35)", () => {
 		expect(screen.queryByRole("link", { name: "Requests" })).not.toBeInTheDocument()
 	})
 })
+
+describe("No cancel control for the Custodian (F-06, TEST-49, BR-13)", () => {
+	it("neither the Pending tab nor the All tab offers Cancel", async () => {
+		signIn(custodian, {
+			all: [
+				{ ...ra, id: "rd", status: "APPROVED" },
+				{ ...ra, id: "re", status: "PENDING" },
+			],
+		})
+		renderApp("/requests")
+
+		await screen.findAllByRole("listitem")
+		expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument()
+		await userEvent.click(screen.getByRole("tab", { name: "All" }))
+		await screen.findAllByRole("listitem")
+		expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument()
+	})
+})

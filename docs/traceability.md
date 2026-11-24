@@ -23,7 +23,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-08 Custodian request list / queue | F-05 | 1 | AC-27, AC-35 / TEST-31, TEST-41 |
 | FR-09 Approve | F-05 | 1 | AC-28 / TEST-32, TEST-40, TEST-41 |
 | FR-10 Reject with reason | F-05 | 1 | AC-31 / TEST-35, TEST-41 |
-| FR-11 Cancel | F-06 | 2 | Planned: API tests per allowed/forbidden state; E2E cancel |
+| FR-11 Cancel | F-06 | 2 | AC-36 to AC-42 / TEST-42 to TEST-50 (API per allowed and forbidden state, concurrency, component, E2E) |
 | FR-12 Checkout | F-07 | 2 | Planned: API tests incl. BR-09 window boundaries |
 | FR-13 Return | F-07 | 2 | Planned: API tests GOOD/DAMAGED; DB check item status |
 | FR-14 Overdue | F-08 | 2 | Planned: unit tests on overdue derivation with fixed clock; API list test; F-02 regression test that an overdue `CHECKED_OUT` loan stays in `committedPeriods` and makes `availableToday` false |

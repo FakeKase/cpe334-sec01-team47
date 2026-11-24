@@ -13,6 +13,7 @@ export const MAX_ACTIVE_REQUESTS = 3
 
 const ACTIVE = ["PENDING", "APPROVED", "CHECKED_OUT"] as const
 const OCCUPYING: RequestStatus[] = ["APPROVED", "CHECKED_OUT"]
+const CANCELLABLE: RequestStatus[] = ["PENDING", "APPROVED"] // BR-06: the two transitions into CANCELLED
 
 export type NewRequest = { itemId: string; startDate: string; dueDate: string; purpose: string }
 
@@ -148,6 +149,21 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 			const { status } = await find(id)
 			if (!canTransition(status, "REJECTED")) throw invalidTransition()
 			return decide(prisma, id, custodianId, clock(), { status: "REJECTED", rejectionReason: reason })
+		},
+
+		/** FR-11. Own request only (404 otherwise, DD-08). The guarded write means a concurrent cancel or approve that got
+		 * there first leaves 0 rows to update, which is 409 (F-06 §1). Allowed on any date (BR-09). */
+		async cancel(borrowerId: string, id: string) {
+			const exists = isUuid(id) && (await prisma.borrowRequest.count({ where: { id, borrowerId } })) > 0
+			if (!exists) throw notFound()
+			const { count } = await prisma.borrowRequest.updateMany({
+				where: { id, borrowerId, status: { in: CANCELLABLE } },
+				data: { status: "CANCELLED", cancelledAt: clock() },
+			})
+			if (count === 0) throw invalidTransition("Only pending or approved requests can be cancelled.")
+			return toRequestResource(
+				await prisma.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
+			)
 		},
 
 		/** Another Borrower's request is 404, not 403, so its existence is not revealed (DD-08). */
