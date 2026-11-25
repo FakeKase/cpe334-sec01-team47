@@ -112,4 +112,4 @@ Tests: see [sts.md](sts.md) (TEST-12 to TEST-16).
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
 | 0.1.1 | 2026-11-12 | Added the Sprint 2 note on overdue checkouts. No Sprint 1 behavior change. | PR #3 review. |
 | 0.2 | 2026-11-23 | Custodians can read retired items (`includeRetired=true`, detail 200). Borrower behavior unchanged; AC-10 and AC-12 still hold. Tested by F-09 AC-51 / TEST-60. | F-09 needs custodians to see and edit retired items (issue #12). |
-| 0.3 | 2026-11-25 | An overdue `CHECKED_OUT` loan keeps the item booked: `availableToday` is false and `committedPeriods` includes it. Each period gains `overdue`. Tested by F-08 AC-73 / TEST-89. | F-08 (issue #11), as announced in v0.1.1. |
+| 0.3 | 2026-11-25 | An overdue `CHECKED_OUT` loan keeps the item booked: `availableToday` is false and `committedPeriods` includes it. Each period gains `overdue`. Tested by F-08 AC-73 / TEST-89; TEST-14 now expects `overdue: false` on its period. | F-08 (issue #11), as announced in v0.1.1. |
