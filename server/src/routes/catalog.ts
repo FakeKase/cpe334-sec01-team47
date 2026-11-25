@@ -38,7 +38,12 @@ export const catalogRoutes = (auth: AuthService, catalog: CatalogService, invent
 			"/items",
 			({ query, user }) =>
 				catalog.listItems(query.categoryId, query.includeRetired === "true" && user.role === "CUSTODIAN"),
-			{ query: z.object({ categoryId: z.string().uuid().optional(), includeRetired: z.string().optional() }) }
+			{
+				query: z.object({
+					categoryId: z.string().uuid().optional(),
+					includeRetired: z.enum(["true", "false"]).optional(),
+				}),
+			}
 		)
 		.get("/items/:id", ({ params, user }) => catalog.getItem(params.id, user.role))
 		.post(

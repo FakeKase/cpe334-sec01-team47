@@ -1,17 +1,24 @@
-import { Link, useLocation } from "react-router"
+import { useEffect } from "react"
+import { Link, useLocation, useNavigate } from "react-router"
 
 import type { ItemSummary } from "../api/catalog"
 import { useApi } from "../api/useApi"
 import { buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
+import { StatusBadge } from "../components/StatusBadge"
 import { Toast } from "../components/Toast"
 import { useToast } from "../components/useToast"
-import { StatusBadge } from "./Catalog"
 
 /** F-09: every item, retired ones included, with a link to its edit page. */
 export function ManageItems() {
 	const location = useLocation()
+	const navigate = useNavigate()
 	const [toast] = useToast((location.state as { toast?: string } | null)?.toast)
 	const { state, retry } = useApi<ItemSummary[]>("/items?includeRetired=true")
+
+	// Show the toast once: Back or a reload must not bring it back (as in F-04's banner).
+	useEffect(() => {
+		if (location.state) navigate(location.pathname, { replace: true, state: null })
+	}, [location.state, location.pathname, navigate])
 
 	return (
 		<div>

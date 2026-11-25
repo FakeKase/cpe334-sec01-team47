@@ -1,13 +1,14 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { type FormEvent, type ReactNode, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 
 import type { Category, ItemDetail, ItemStatus } from "../api/catalog"
 import { ApiError, api } from "../api/client"
 import { useApi } from "../api/useApi"
+import { Dialog } from "../components/Dialog"
+import { border, describedBy, FieldError, input } from "../components/form"
 import { Alert, buttonClass, ErrorState, LoadingState } from "../components/states"
 import { Toast } from "../components/Toast"
 import { useToast } from "../components/useToast"
-import { border, FieldError, input } from "./RequestForm"
 import { NotFound } from "./SystemPages"
 
 const BR12 = "Asset tag must look like CPE-0042: 2 to 5 letters, a hyphen and 3 to 5 digits."
@@ -73,23 +74,31 @@ function ItemFields({
 	values,
 	errors,
 	onChange,
-	categories,
 }: {
 	values: Values
 	errors: FieldErrors
 	onChange: (field: Field, value: string) => void
-	categories?: Category[]
 }) {
+	const { state, retry } = useApi<Category[]>("/categories")
+	const categories = state.status === "ok" ? state.data : undefined
 	const props = (id: Field) => ({
 		id,
 		value: values[id],
 		onChange: (e: { target: { value: string } }) => onChange(id, e.target.value),
 		"aria-invalid": !!errors[id],
-		"aria-describedby": `${id}-error`,
+		"aria-describedby": describedBy(id, errors[id]),
 		className: `${input} ${border(errors[id])}`,
 	})
 	return (
 		<div className="flex flex-col gap-4">
+			{state.status === "error" && (
+				<Alert kind="error">
+					<span className="flex-1">Categories could not be loaded.</span>
+					<button type="button" onClick={retry} className={buttonClass("secondary")}>
+						Retry
+					</button>
+				</Alert>
+			)}
 			<div className="grid gap-4 sm:grid-cols-2">
 				<Labelled id="assetTag" label="Asset tag" error={errors.assetTag}>
 					<input {...props("assetTag")} placeholder="CPE-0042" autoCapitalize="characters" />
@@ -116,11 +125,6 @@ function ItemFields({
 			</Labelled>
 		</div>
 	)
-}
-
-function useCategories() {
-	const { state } = useApi<Category[]>("/categories")
-	return state.status === "ok" ? state.data : undefined
 }
 
 /** One form for create and edit: client checks first, then the server's field errors or alert. `send` may return
@@ -164,7 +168,6 @@ function BackLink() {
 /** F-09 `/manage/items/new`. */
 export function NewItem() {
 	const navigate = useNavigate()
-	const categories = useCategories()
 	const form = useItemForm(empty, async (body) => {
 		await api("/items", { method: "POST", body })
 		navigate("/manage/items", { state: { toast: "Item created" } })
@@ -174,12 +177,14 @@ export function NewItem() {
 		<div>
 			<BackLink />
 			<h1 className="mt-3 text-2xl font-semibold">Add item</h1>
-			<form onSubmit={form.submit} noValidate className="mt-4 flex max-w-2xl flex-col gap-4">
-				{form.alert && <Alert kind="error">{form.alert}</Alert>}
-				<ItemFields values={form.values} errors={form.errors} onChange={form.onChange} categories={categories} />
-				<button type="submit" disabled={form.submitting} className={`${buttonClass()} self-start`}>
-					Add item
-				</button>
+			<form onSubmit={form.submit} noValidate className="mt-4 max-w-2xl">
+				<fieldset disabled={form.submitting} className="flex min-w-0 flex-col gap-4">
+					{form.alert && <Alert kind="error">{form.alert}</Alert>}
+					<ItemFields values={form.values} errors={form.errors} onChange={form.onChange} />
+					<button type="submit" className={`${buttonClass()} self-start`}>
+						Add item
+					</button>
+				</fieldset>
 			</form>
 		</div>
 	)
@@ -207,11 +212,13 @@ const STATUS_TOAST: Record<ItemStatus, string> = {
 }
 
 function EditItemForm({ loaded }: { loaded: ItemDetail }) {
-	const categories = useCategories()
 	const [item, setItem] = useState(loaded)
 	const [toast, showToast] = useToast()
 	const form = useItemForm(valuesOf(loaded), async (body) => {
-		const saved = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body })
+		// Only the changed fields, so another Custodian's edit to a field this one did not touch survives.
+		const before = toBody(valuesOf(item))
+		const changed = Object.fromEntries(Object.entries(body).filter(([k, v]) => v !== before[k as Field]))
+		const saved = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body: changed })
 		setItem(saved)
 		showToast("Changes saved")
 		return valuesOf(saved)
@@ -223,10 +230,10 @@ function EditItemForm({ loaded }: { loaded: ItemDetail }) {
 			<BackLink />
 			<h1 className="mt-3 text-2xl font-semibold">Edit item</h1>
 			<form onSubmit={form.submit} noValidate className="mt-4 max-w-2xl">
-				<fieldset disabled={retired} className="flex min-w-0 flex-col gap-4">
+				<fieldset disabled={retired || form.submitting} className="flex min-w-0 flex-col gap-4">
 					{form.alert && <Alert kind="error">{form.alert}</Alert>}
-					<ItemFields values={form.values} errors={form.errors} onChange={form.onChange} categories={categories} />
-					<button type="submit" disabled={form.submitting} className={`${buttonClass()} self-start`}>
+					<ItemFields values={form.values} errors={form.errors} onChange={form.onChange} />
+					<button type="submit" className={`${buttonClass()} self-start`}>
 						Save changes
 					</button>
 				</fieldset>
@@ -308,37 +315,20 @@ function StatusSection({ item, onChanged }: { item: ItemDetail; onChanged: (item
 	)
 }
 
-/** Native modal dialog, like the reject dialog of F-05: focus trap, Esc and the backdrop come from the browser. */
 function RetireDialog({ name, onKeep, onRetire }: { name: string; onKeep: () => void; onRetire: () => void }) {
-	const dialog = useRef<HTMLDialogElement>(null)
-	useEffect(() => dialog.current?.showModal(), [])
-
 	return (
-		<dialog
-			ref={dialog}
-			onClose={onKeep}
-			aria-labelledby="retire-title"
-			aria-describedby="retire-description"
-			className="mx-auto mt-30 w-[calc(100%-2rem)] max-w-120 rounded-xl bg-surface p-6 text-fg shadow-[0_8px_24px_-4px_rgb(15_23_41/0.18)] backdrop:bg-overlay/50 md:mt-40">
-			<div className="flex flex-col gap-4">
-				<div className="flex flex-col gap-1">
-					<h2 id="retire-title" className="text-lg font-semibold">
-						Retire item
-					</h2>
-					<p className="font-medium break-words">{name}</p>
-					<p id="retire-description" className="text-sm text-secondary">
-						Retiring is permanent. Pending requests for this item will be rejected with the reason "Item retired".
-					</p>
-				</div>
-				<div className="flex flex-wrap justify-end gap-3">
-					<button type="button" className={buttonClass("secondary")} onClick={onKeep}>
-						Keep item
-					</button>
-					<button type="button" className={buttonClass("danger")} onClick={onRetire}>
-						Retire item
-					</button>
-				</div>
+		<Dialog
+			title="Retire item"
+			description={`Retire ${name}? This is permanent. Pending requests for this item will be rejected with the reason "Item retired".`}
+			onClose={onKeep}>
+			<div className="flex flex-wrap justify-end gap-3">
+				<button type="button" className={buttonClass("secondary")} onClick={onKeep}>
+					Keep item
+				</button>
+				<button type="button" className={buttonClass("danger")} onClick={onRetire}>
+					Retire item
+				</button>
 			</div>
-		</dialog>
+		</Dialog>
 	)
 }

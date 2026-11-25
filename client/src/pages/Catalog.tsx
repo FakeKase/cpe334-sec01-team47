@@ -1,15 +1,11 @@
 import { useState } from "react"
 import { Link } from "react-router"
 
-import { availability, type Category, type ItemSummary } from "../api/catalog"
+import type { Category, ItemSummary } from "../api/catalog"
 import { useApi } from "../api/useApi"
 import { useAuth } from "../auth/AuthContext"
 import { buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
-
-export function StatusBadge({ item }: { item: Pick<ItemSummary, "status" | "availableToday"> }) {
-	const { label, tone } = availability(item)
-	return <span className={`inline-block rounded-full border px-2 py-0.5 text-sm ${tone}`}>{label}</span>
-}
+import { StatusBadge } from "../components/StatusBadge"
 
 export function Catalog() {
 	const { user } = useAuth()

@@ -4,7 +4,7 @@ import type { ItemDetail as Item } from "../api/catalog"
 import { useApi } from "../api/useApi"
 import { useAuth } from "../auth/AuthContext"
 import { buttonClass, ErrorState, LoadingState } from "../components/states"
-import { StatusBadge } from "./Catalog"
+import { StatusBadge } from "../components/StatusBadge"
 import { RequestForm } from "./RequestForm"
 import { NotFound } from "./SystemPages"
 
