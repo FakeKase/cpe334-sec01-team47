@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client"
 
-/** Prisma `select` for the request resource shared by F-03, F-04, F-05 and F-06 (F-03 contract §4, `cancelledAt` from F-06 §4). */
+/** Prisma `select` for the request resource shared by F-03 to F-07 (F-03 contract §4, `cancelledAt` from F-06 §4, checkout and return fields from F-07 §4). */
 export const requestResourceSelect = {
 	id: true,
 	status: true,
@@ -13,6 +13,12 @@ export const requestResourceSelect = {
 	decidedBy: { select: { id: true, displayName: true } },
 	decidedAt: true,
 	cancelledAt: true,
+	checkedOutBy: { select: { id: true, displayName: true } },
+	checkedOutAt: true,
+	returnedTo: { select: { id: true, displayName: true } },
+	returnedAt: true,
+	returnCondition: true,
+	returnNote: true,
 	createdAt: true,
 } satisfies Prisma.BorrowRequestSelect
 

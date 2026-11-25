@@ -18,6 +18,11 @@ enum ItemStatus {
   RETIRED
 }
 
+enum ReturnCondition {
+  GOOD
+  DAMAGED
+}
+
 enum RequestStatus {
   PENDING
   APPROVED
@@ -35,9 +40,11 @@ model User {
   role         Role
   createdAt    DateTime @default(now()) @db.Timestamptz
 
-  sessions Session[]
-  borrowed BorrowRequest[] @relation("Borrower")
-  decided  BorrowRequest[] @relation("Decider")
+  sessions     Session[]
+  borrowed     BorrowRequest[] @relation("Borrower")
+  decided      BorrowRequest[] @relation("Decider")
+  checkedOut   BorrowRequest[] @relation("CheckedOutBy")
+  returnsTaken BorrowRequest[] @relation("ReturnedTo")
 }
 
 model Session {
@@ -71,26 +78,34 @@ model Item {
   requests BorrowRequest[]
 }
 
-// Sprint 2 adds the cancel/checkout/return columns in additive migrations (F-06: cancelledAt).
+// Sprint 2 adds the cancel/checkout/return columns in additive migrations (F-06: cancelledAt, F-07: checkout and return).
 // CHECK ("dueDate" >= "startDate") is appended to the init migration by hand (Prisma cannot express it).
 model BorrowRequest {
-  id              String        @id @default(uuid()) @db.Uuid
-  itemId          String        @db.Uuid
-  borrowerId      String        @db.Uuid
-  startDate       DateTime      @db.Date
-  dueDate         DateTime      @db.Date
+  id              String           @id @default(uuid()) @db.Uuid
+  itemId          String           @db.Uuid
+  borrowerId      String           @db.Uuid
+  startDate       DateTime         @db.Date
+  dueDate         DateTime         @db.Date
   purpose         String
-  status          RequestStatus @default(PENDING)
+  status          RequestStatus    @default(PENDING)
   rejectionReason String?
-  decidedById     String?       @db.Uuid
-  decidedAt       DateTime?     @db.Timestamptz
-  cancelledAt     DateTime?     @db.Timestamptz
-  createdAt       DateTime      @default(now()) @db.Timestamptz
-  updatedAt       DateTime      @updatedAt @db.Timestamptz
+  decidedById     String?          @db.Uuid
+  decidedAt       DateTime?        @db.Timestamptz
+  cancelledAt     DateTime?        @db.Timestamptz
+  checkedOutById  String?          @db.Uuid
+  checkedOutAt    DateTime?        @db.Timestamptz
+  returnedToId    String?          @db.Uuid
+  returnedAt      DateTime?        @db.Timestamptz
+  returnCondition ReturnCondition?
+  returnNote      String?
+  createdAt       DateTime         @default(now()) @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @db.Timestamptz
 
-  item      Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  borrower  User  @relation("Borrower", fields: [borrowerId], references: [id], onDelete: Restrict)
-  decidedBy User? @relation("Decider", fields: [decidedById], references: [id], onDelete: Restrict)
+  item         Item  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  borrower     User  @relation("Borrower", fields: [borrowerId], references: [id], onDelete: Restrict)
+  decidedBy    User? @relation("Decider", fields: [decidedById], references: [id], onDelete: Restrict)
+  checkedOutBy User? @relation("CheckedOutBy", fields: [checkedOutById], references: [id], onDelete: Restrict)
+  returnedTo   User? @relation("ReturnedTo", fields: [returnedToId], references: [id], onDelete: Restrict)
 
   @@index([itemId, status])
   @@index([borrowerId, status])
