@@ -3,8 +3,9 @@ import { expect, test } from "@playwright/test"
 import { logIn } from "./helpers"
 
 test("TEST-64 (AC-43, AC-48, AC-52, AC-53): a Custodian adds, edits and retires an item", async ({ page }) => {
-	// Retired items stay in the database, so every run needs a fresh tag.
-	const tag = `TST-${String(Date.now() % 100_000).padStart(5, "0")}`
+	// Retired items stay in the database, so every run needs a fresh tag: 4 random letters (26^4) and 5 digits.
+	const letters = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("")
+	const tag = `${letters}-${String(Math.floor(Math.random() * 100_000)).padStart(5, "0")}`
 	const name = `E2E soldering station ${tag}`
 
 	await logIn(page, "CUSTODIAN")

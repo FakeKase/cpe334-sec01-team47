@@ -101,12 +101,35 @@ describe("Add and edit item form (F-09, TEST-61, AC-52)", () => {
 		signIn()
 		renderApp("/manage/items/new")
 		await userEvent.type(await screen.findByLabelText("Asset tag"), "CPE-0500")
+		expect(screen.getByLabelText("Name")).not.toHaveAttribute("aria-describedby")
 		await userEvent.click(screen.getByRole("button", { name: "Add item" }))
 		expect(screen.getByLabelText("Name")).toHaveAccessibleDescription("Name is required.")
 		expect(screen.getByLabelText("Category")).toHaveAccessibleDescription("Choose a category.")
+		expect(screen.getByLabelText("Asset tag")).not.toHaveAttribute("aria-describedby")
 	})
 
-	it("prefills the edit form and saves the changes with PATCH", async () => {
+	it("shows an error with Retry when the categories fail to load", async () => {
+		signIn()
+		let calls = 0
+		server.use(
+			http.get("/api/categories", () =>
+				++calls === 1
+					? HttpResponse.json({ error: { code: "INTERNAL_ERROR", message: "x" } }, { status: 500 })
+					: HttpResponse.json([measurement, power])
+			)
+		)
+		renderApp("/manage/items/new")
+
+		const alert = await screen.findByRole("alert")
+		expect(alert).toHaveTextContent("Categories could not be loaded.")
+		expect(screen.getByLabelText("Category")).toBeDisabled()
+		await userEvent.click(within(alert).getByRole("button", { name: "Retry" }))
+		await waitFor(() => expect(screen.getByLabelText("Category")).toBeEnabled())
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+		expect(calls).toBe(2)
+	})
+
+	it("prefills the edit form, locks it while saving and sends only the changed fields", async () => {
 		signIn()
 		const patched: unknown[] = []
 		server.use(
@@ -132,17 +155,11 @@ describe("Add and edit item form (F-09, TEST-61, AC-52)", () => {
 		const save = screen.getByRole("button", { name: "Save changes" })
 		await userEvent.click(save)
 		expect(save).toBeDisabled()
+		expect(name).toBeDisabled()
 
 		expect(await screen.findByText("Changes saved")).toBeInTheDocument()
-		expect(patched).toEqual([
-			{
-				assetTag: "CPE-0201",
-				name: "Rigol DS1104Z",
-				categoryId: "c1",
-				location: "Cabinet B2",
-				description: "4-channel 50 MHz",
-			},
-		])
+		expect(name).toBeEnabled()
+		expect(patched).toEqual([{ name: "Rigol DS1104Z" }])
 	})
 
 	it("shows Not found for an unknown item", async () => {

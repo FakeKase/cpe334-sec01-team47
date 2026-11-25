@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-15, FR-16, BR-02 (maintenance), BR-11, BR-12, BR-13, NFR-02, NFR-05, NFR-12, NFR-13 |
 | **Depends on** | F-02 (catalog resources), F-05 (approve locks the item row) |
 | **Sprint** | 2 |
-| **Contract version** | 0.1 (draft, 2026-11-23). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-25). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -18,7 +18,8 @@
 3. The client calls `POST /api/items`. On 201 it goes to `/manage/items` and a toast says "Item created".
 4. To edit, the Custodian presses **Edit** on the item detail page (`/items/:id`) or on a `/manage/items` row,
    which opens `/manage/items/:id`. The form is prefilled from `GET /api/items/:id`. **Save changes** sends
-   `PATCH /api/items/:id`. On 200 the form shows the saved values and a toast says "Changes saved".
+   `PATCH /api/items/:id` with only the fields that changed, so it does not overwrite another Custodian's edit
+   to a field this one did not touch. On 200 the form shows the saved values and a toast says "Changes saved".
 
 The asset tag is trimmed and upper-cased before it is checked and stored, so `cpe-0042` is stored as `CPE-0042`
 and uniqueness is case-insensitive (BR-12). The unique index on `Item.assetTag` is the last line of defence: a
@@ -55,7 +56,7 @@ retirement and an approval of the same item never interleave (NFR-05).
 ### Retired items in the views
 
 - `GET /api/items` keeps hiding retired items. A Custodian can add `includeRetired=true` to list them too.
-  A Borrower's `includeRetired` is ignored.
+  A Borrower's `includeRetired` is ignored. The value must be `true` or `false`; anything else is a 400.
 - `GET /api/items/:id` returns a retired item to a Custodian (status `RETIRED`, `availableToday: false`). For a
   Borrower it is still 404 (F-02 v0.2).
 - `/manage/items` lists every item including retired ones, each with its status badge ("Retired" for retired
@@ -126,7 +127,8 @@ as `""` or `null` clears it. `status` is ignored here. 200: the item resource. E
 ### `GET /api/items?includeRetired=true`
 
 As F-02, plus retired items when the caller is a Custodian. Their `status` is `RETIRED` and `availableToday`
-is `false`.
+is `false`. `includeRetired` accepts `true` or `false` only; any other value (`1`, `TRUE`, empty) → 400
+`VALIDATION_ERROR` on `includeRetired`, whatever the role.
 
 ## 5. Data
 
@@ -150,8 +152,10 @@ light/dark tokens.
 - **`/manage/items/new`** ("Add item") and **`/manage/items/:id`** ("Edit item"): labelled fields in the order
   of §2, field errors below each field (client checks first, then the server's 400 `details` and the 409
   `DUPLICATE_ASSET_TAG` under **Asset tag**). Other errors appear in an alert above the form and the input is
-  kept. The submit button is disabled while the call runs. Loading and load-error states as above; an unknown
-  id shows "Not found".
+  kept. The fields and the submit button are disabled while the call runs. A field is linked to its error
+  (`aria-describedby`) only while it has one. If `GET /api/categories` fails, an alert "Categories could not be
+  loaded." with **Retry** appears above the form and **Category** stays disabled until they load. Loading and
+  load-error states as above; an unknown id shows "Not found".
 - **Status section** (edit page only): the current status badge and the buttons of §1. While a change runs,
   the buttons are disabled. **Retire item** opens a native modal dialog (title "Retire item", the item name,
   the BR-11 text, **Keep item** / **Retire item** (danger)). Success updates the badge and shows a toast
@@ -173,8 +177,8 @@ light/dark tokens.
 | **AC-48** | **BR-11:** retiring an item with an `APPROVED` (or `CHECKED_OUT`) request → 409 `ITEM_IN_USE`, the item and its requests unchanged. Retiring an item whose requests are `PENDING`, `REJECTED` and `RETURNED` → 200 `RETIRED`. The `PENDING` one is now `REJECTED` with reason "Item retired", `decidedById` = the Custodian and `decidedAt` set. The others are unchanged. A retired item → any status → 409 `INVALID_TRANSITION`. |
 | **AC-49** | **NFR-05:** **given** an item with one `PENDING` request, **when** a retire and an approve of that request are sent concurrently, **then** exactly one succeeds. Either the item is `RETIRED` and the request `REJECTED`, or the request is `APPROVED` and the item still `ACTIVE`. |
 | **AC-50** | **BR-13:** a Borrower calling create, edit or status → 403, nothing written. No token → 401. An unknown or malformed `:id` → 404. A `status` outside the three values → 400. |
-| **AC-51** | A Custodian's `GET /api/items?includeRetired=true` includes `CPE-0999` with `status: "RETIRED"`. A Borrower's gets the usual 11 items. A Custodian's `GET /api/items` without the flag excludes it. A Custodian's `GET /api/items/<CPE-0999>` → 200 `RETIRED`. A Borrower's → 404. |
-| **AC-52** | **UI (form):** an invalid asset tag shows the BR-12 message under **Asset tag** and nothing is sent. A 409 `DUPLICATE_ASSET_TAG` shows its message under **Asset tag** and keeps the input. A valid create goes to `/manage/items` with the "Item created" toast. Editing prefills the form and saving shows "Changes saved". |
+| **AC-51** | A Custodian's `GET /api/items?includeRetired=true` includes `CPE-0999` with `status: "RETIRED"`. A Borrower's gets the usual 11 items. A Custodian's `GET /api/items` without the flag, or with `includeRetired=false`, excludes it. `includeRetired=1`, `TRUE` or empty → 400 on `includeRetired`. A Custodian's `GET /api/items/<CPE-0999>` → 200 `RETIRED`. A Borrower's → 404. |
+| **AC-52** | **UI (form):** an invalid asset tag shows the BR-12 message under **Asset tag** and nothing is sent. A 409 `DUPLICATE_ASSET_TAG` shows its message under **Asset tag** and keeps the input. A valid create goes to `/manage/items` with the "Item created" toast, shown once (not again after Back or a reload). Editing prefills the form; saving disables the fields, sends only the changed fields and shows "Changes saved". A failed categories load shows an alert with **Retry**. A field without an error has no `aria-describedby`. |
 | **AC-53** | **UI (status):** **Retire item** opens the dialog with the BR-11 text. **Keep item** sends nothing. Confirming sends the status change, shows the **Retired** badge, disables the form and shows "Item retired". A 409 `ITEM_IN_USE` shows its message in the status section. **Set to maintenance** shows the maintenance badge and toast. |
 | **AC-54** | **UI (navigation):** a Custodian sees **Inventory** in the header, **Add item** on `/items` and **Edit** on `/items/:id`. A Borrower sees none of them and gets "You are not allowed to do this" on `/manage/items`. `/manage/items` shows loading, then rows including a **Retired** badge, an empty message for no items, and **Retry** after an error. |
 
@@ -185,3 +189,4 @@ Tests: see [sts.md](sts.md) (TEST-51 to TEST-64).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-23 | Initial contract | Sprint 2 planning (issue #12) |
+| 0.2 | 2026-11-25 | Strict `includeRetired`; PATCH sends only changed fields; categories load error; toast shown once | Review of PR #55 |

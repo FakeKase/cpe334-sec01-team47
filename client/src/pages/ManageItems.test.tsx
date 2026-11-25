@@ -1,7 +1,10 @@
-import { screen, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { delay, http, HttpResponse } from "msw"
+import { createMemoryRouter, RouterProvider } from "react-router"
 
+import { App } from "../App"
+import { AuthProvider } from "../auth/AuthContext"
 import { borrower, custodian, renderApp } from "../test/render"
 import { server } from "../test/server"
 
@@ -112,5 +115,34 @@ describe("Inventory list (F-09, TEST-63, AC-54)", () => {
 		await userEvent.click(await screen.findByRole("button", { name: "Retry" }))
 		expect(await screen.findByText("Rigol DS1054Z oscilloscope")).toBeInTheDocument()
 		expect(calls).toBe(2)
+	})
+})
+
+describe("Item created toast (F-09, TEST-61, AC-52)", () => {
+	it("shows the toast once: not again after Back", async () => {
+		signIn(custodian)
+		const router = createMemoryRouter(
+			[
+				{
+					path: "*",
+					element: (
+						<AuthProvider>
+							<App />
+						</AuthProvider>
+					),
+				},
+			],
+			{ initialEntries: [{ pathname: "/manage/items", state: { toast: "Item created" } }] }
+		)
+		render(<RouterProvider router={router} />)
+
+		expect(await screen.findByText("Item created")).toBeInTheDocument()
+		await waitFor(() => expect(router.state.location.state).toBeNull())
+		expect(screen.getByText("Item created")).toBeInTheDocument()
+
+		await act(() => router.navigate("/items"))
+		await act(() => router.navigate(-1))
+		await screen.findAllByRole("listitem")
+		expect(screen.queryByText("Item created")).not.toBeInTheDocument()
 	})
 })

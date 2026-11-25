@@ -343,6 +343,17 @@ describe("custodians can read retired items (TEST-60, AC-51)", () => {
 
 		const plain = await api().get("/api/items").set(as(c))
 		expect(plain.body).toHaveLength(11)
+
+		const off = await api().get("/api/items?includeRetired=false").set(as(c))
+		expect(off.body).toHaveLength(11)
+	})
+
+	it.each(["1", "TRUE", ""])("includeRetired=%j is a 400", async (value) => {
+		const res = await api()
+			.get(`/api/items?includeRetired=${value}`)
+			.set(as(await custodian()))
+		expect(res.status).toBe(400)
+		expect(fields(res)).toContain("includeRetired")
 	})
 
 	it("detail of a retired item: 200 for a Custodian, 404 for a Borrower", async () => {
