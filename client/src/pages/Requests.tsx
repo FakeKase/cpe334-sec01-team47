@@ -3,6 +3,7 @@ import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "rea
 import { api, type ApiError } from "../api/client"
 import { type BorrowRequest, dayMonth, formatPeriod, formatTimestamp, today } from "../api/requests"
 import { useApi } from "../api/useApi"
+import { Dialog } from "../components/Dialog"
 import { card, RequestRow } from "../components/RequestRow"
 import { type ReturnCondition, ReturnDialog } from "../components/ReturnDialog"
 import { Alert, buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
@@ -142,16 +143,12 @@ function ReturnRow({ r, state, onReturn }: { r: BorrowRequest; state?: RowState;
 	)
 }
 
-/** Native modal dialog: focus trap, Esc and the backdrop come from the browser. Confirm needs a non-blank reason (BR-07). */
+/** Confirm needs a non-blank reason (BR-07). */
 function RejectDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: (reason: string) => void }) {
-	const dialog = useRef<HTMLDialogElement>(null)
 	const field = useRef<HTMLTextAreaElement>(null)
 	const [reason, setReason] = useState("")
 
-	useEffect(() => {
-		dialog.current?.showModal()
-		field.current?.focus()
-	}, [])
+	useEffect(() => field.current?.focus(), [])
 
 	function submit(e: FormEvent) {
 		e.preventDefault()
@@ -159,21 +156,11 @@ function RejectDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
 	}
 
 	return (
-		<dialog
-			ref={dialog}
-			onClose={onCancel}
-			aria-labelledby="reject-title"
-			aria-describedby="reject-description"
-			className="mx-auto mt-30 w-[calc(100%-2rem)] max-w-120 rounded-xl bg-surface p-6 text-fg shadow-[0_8px_24px_-4px_rgb(15_23_41/0.18)] backdrop:bg-overlay/50 md:mt-40">
+		<Dialog
+			title="Reject request"
+			description="Give the borrower a reason. They will see it on My requests."
+			onClose={onCancel}>
 			<form onSubmit={submit} className="flex flex-col gap-4">
-				<div className="flex flex-col gap-1">
-					<h2 id="reject-title" className="text-lg font-semibold">
-						Reject request
-					</h2>
-					<p id="reject-description" className="text-sm text-secondary">
-						Give the borrower a reason. They will see it on My requests.
-					</p>
-				</div>
 				<div className="flex flex-col gap-1">
 					<label htmlFor="reject-reason" className="text-sm font-medium">
 						Reason (required)
@@ -201,7 +188,7 @@ function RejectDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
 					</button>
 				</div>
 			</form>
-		</dialog>
+		</Dialog>
 	)
 }
 
