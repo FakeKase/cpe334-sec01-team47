@@ -304,3 +304,22 @@ describe("A Borrower sees checkout and return (F-07, TEST-78, AC-65)", () => {
 		}
 	})
 })
+
+describe("Overdue label on My requests (F-08, TEST-90, AC-74)", () => {
+	it("shows Overdue next to the status of the overdue loan only", async () => {
+		const out = { ...pending, status: "CHECKED_OUT", startDate: "2026-11-10", dueDate: "2026-11-18", overdue: false }
+		const late = {
+			...out,
+			id: "r9",
+			item: { id: "i9", assetTag: "CPE-0002", name: "ESP32 DevKit" },
+			dueDate: "2026-11-14",
+			overdue: true,
+		}
+		signIn([late, out])
+		renderApp("/my-requests")
+
+		expect((await screen.findByText("ESP32 DevKit")).closest("li")).toHaveTextContent("Overdue")
+		expect(screen.getByText("Rigol DS1054Z oscilloscope").closest("li")).not.toHaveTextContent("Overdue")
+		expect(screen.getAllByText("Overdue")).toHaveLength(1)
+	})
+})
