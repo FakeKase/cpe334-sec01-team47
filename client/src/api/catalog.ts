@@ -16,6 +16,8 @@ export type CommittedPeriod = {
 	startDate: string
 	dueDate: string
 	status: "APPROVED" | "CHECKED_OUT"
+	/** A CHECKED_OUT loan past its due date; it still holds the item (F-08). */
+	overdue: boolean
 	/** Present only for Custodians. */
 	borrower?: { displayName: string }
 }

@@ -456,10 +456,14 @@ describe("Overdue label on Custodian rows (F-08, TEST-90, AC-74)", () => {
 		signIn(custodian, { all: [late, onTime], checkedOut: [late, onTime] })
 		renderApp("/requests")
 
-		for (const tab of ["All", "Checked out"]) {
+		// The All tab shows the item name on its own line; the Checked out tab joins it with the asset tag.
+		for (const [tab, name] of [
+			["All", (item: string) => item],
+			["Checked out", (item: string, tag: string) => label(item, tag)],
+		] as const) {
 			await openTab(tab)
-			expect(await rowOf(label("ESP32 DevKit", "CPE-0002"))).toHaveTextContent("Overdue")
-			expect(await rowOf(label("Arduino Uno R3", "CPE-0001"))).not.toHaveTextContent("Overdue")
+			expect(await rowOf(name("ESP32 DevKit", "CPE-0002"))).toHaveTextContent("Overdue")
+			expect(await rowOf(name("Arduino Uno R3", "CPE-0001"))).not.toHaveTextContent("Overdue")
 			expect(within(screen.getByRole("tabpanel")).getAllByText("Overdue")).toHaveLength(1)
 		}
 	})

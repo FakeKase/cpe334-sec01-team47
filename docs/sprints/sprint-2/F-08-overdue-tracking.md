@@ -145,8 +145,8 @@ No schema change and no migration. Overdue is derived from `status` and `dueDate
 ## 6. UI
 
 - **Overdue label.** A red pill reading **Overdue** (`bg-badge-error-bg text-error-fg`) appears next to the
-  status badge on every row whose `overdue` is `true`: `/my-requests`, the **All** and **Checked out** tabs of
-  `/requests`, and `/overdue`. The text is always shown, so colour alone carries no meaning.
+  status badge on every row whose `overdue` is `true`: `/my-requests` and the **All** and **Checked out** tabs
+  of `/requests`. The text is always shown, so colour alone carries no meaning.
 - **`/overdue` (Custodian).** The header gains an **Overdue** link after **Requests**. The page has the title
   "Overdue loans" and the line "Checked-out loans past their due date, oldest first." Each row shows the
   borrower's name, the item name and asset tag, "Due 14 Nov 2026" and "1 day overdue" (or "N days overdue").

@@ -9,6 +9,7 @@ import { EditItem, NewItem } from "./pages/ItemForm"
 import { Login } from "./pages/Login"
 import { ManageItems } from "./pages/ManageItems"
 import { MyRequests } from "./pages/MyRequests"
+import { Overdue } from "./pages/Overdue"
 import { Requests } from "./pages/Requests"
 import { NotFound } from "./pages/SystemPages"
 
@@ -42,6 +43,7 @@ export function App() {
 					</Route>
 					<Route element={<RequireRole allow="CUSTODIAN" />}>
 						<Route path="/requests" element={<Requests />} />
+						<Route path="/overdue" element={<Overdue />} />
 						<Route path="/manage/items" element={<ManageItems />} />
 						<Route path="/manage/items/new" element={<NewItem />} />
 						<Route path="/manage/items/:id" element={<EditItem />} />

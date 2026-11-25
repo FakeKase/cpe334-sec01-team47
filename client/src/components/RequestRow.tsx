@@ -10,6 +10,15 @@ function RequestStatusBadge({ status }: Pick<BorrowRequest, "status">) {
 	return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>{label}</span>
 }
 
+/** F-08: shown next to the status, never instead of it, so colour alone carries no meaning. */
+export function OverdueBadge() {
+	return (
+		<span className="inline-block self-start rounded-full bg-badge-error-bg px-2 py-0.5 text-xs font-medium text-error-fg">
+			Overdue
+		</span>
+	)
+}
+
 /** F-04 row, also the Custodian's All tab with `showBorrower`. Desktop: one line with item, period, badge and submitted date. Mobile (360): stacked, badge beside the date. */
 export function RequestRow({
 	r,
@@ -42,8 +51,9 @@ export function RequestRow({
 				</p>
 			</div>
 			<p className="col-span-2 text-sm font-medium md:col-span-1">{formatPeriod(r.startDate, r.dueDate)}</p>
-			<div>
+			<div className="flex flex-wrap gap-1">
 				<RequestStatusBadge status={r.status} />
+				{r.overdue && <OverdueBadge />}
 			</div>
 			<p className="text-sm text-muted md:text-right">Submitted {formatTimestampDate(r.createdAt)}</p>
 			{r.status === "REJECTED" && r.rejectionReason && (

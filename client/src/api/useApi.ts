@@ -5,13 +5,15 @@ import { api, type ApiError } from "./client"
 type Result<T> = { status: "ok"; data: T } | { status: "error"; error: ApiError }
 type State<T> = { status: "loading" } | Result<T>
 
-/** GET `path` and reload when it changes. A result is only shown for the request that produced it. */
-export function useApi<T>(path: string) {
+/** GET `path` and reload when it changes. A result is only shown for the request that produced it.
+ * `null` sends nothing and stays loading, for data a page only needs in some states. */
+export function useApi<T>(path: string | null) {
 	const [attempt, setAttempt] = useState(0)
 	const key = `${attempt}:${path}`
 	const [result, setResult] = useState<(Result<T> & { key: string }) | null>(null)
 
 	useEffect(() => {
+		if (path === null) return
 		let ignore = false
 		api<T>(path).then(
 			(data) => !ignore && setResult({ key, status: "ok", data }),

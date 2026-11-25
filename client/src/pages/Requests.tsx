@@ -4,7 +4,7 @@ import { api, type ApiError } from "../api/client"
 import { type BorrowRequest, dayMonth, formatPeriod, formatTimestamp, today } from "../api/requests"
 import { useApi } from "../api/useApi"
 import { Dialog } from "../components/Dialog"
-import { card, RequestRow } from "../components/RequestRow"
+import { card, OverdueBadge, RequestRow } from "../components/RequestRow"
 import { type ReturnCondition, ReturnDialog } from "../components/ReturnDialog"
 import { Alert, buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
 import { Toast } from "../components/Toast"
@@ -33,11 +33,13 @@ const toasts: Record<Action, string> = {
 	checkout: "Item checked out",
 }
 
-/** BR-09 as the Custodian sees it. The server decides in the end (F-07 §6). */
-function checkoutBlock(r: BorrowRequest): string | undefined {
+/** BR-09 as the Custodian sees it, then an overdue loan still holding the item (F-08). The server decides in the end
+ * (F-07 §6). `outItems` are the ids of items on an overdue loan. */
+function checkoutBlock(r: BorrowRequest, outItems: ReadonlySet<string>): string | undefined {
 	const now = today()
 	if (r.startDate > now) return `Starts ${dayMonth(r.startDate)}`
 	if (r.dueDate < now) return "Due date passed, can only be cancelled"
+	if (outItems.has(r.item.id)) return "Item still out on an overdue loan"
 }
 
 /** Figma "Review row": Default, Busy (buttons disabled while the action runs) and Error (409 message on the row).
@@ -66,6 +68,7 @@ function ActionRow({
 				<div className="flex flex-col gap-1 text-sm">
 					<p className="font-medium">{formatPeriod(r.startDate, r.dueDate)}</p>
 					<p className="text-muted">{meta}</p>
+					{r.overdue && <OverdueBadge />}
 				</div>
 				{children}
 			</div>
@@ -105,8 +108,18 @@ function ReviewRow({
 }
 
 /** F-07: an approved request waiting to be handed over. Outside the BR-09 window the button is disabled and says why. */
-function HandOverRow({ r, state, onCheckout }: { r: BorrowRequest; state?: RowState; onCheckout: () => void }) {
-	const blocked = checkoutBlock(r)
+function HandOverRow({
+	r,
+	state,
+	outItems,
+	onCheckout,
+}: {
+	r: BorrowRequest
+	state?: RowState
+	outItems: ReadonlySet<string>
+	onCheckout: () => void
+}) {
+	const blocked = checkoutBlock(r, outItems)
 	const busy = state?.busy === "checkout"
 	return (
 		<ActionRow r={r} error={state?.error} meta={`Submitted ${formatTimestamp(r.createdAt)}`}>
@@ -197,6 +210,9 @@ function RejectDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
 export function Requests() {
 	const [tab, setTab] = useState<Tab>("pending")
 	const { state, retry } = useApi<BorrowRequest[]>(tabs.find((t) => t.id === tab)!.path)
+	// F-08: an item on an overdue loan cannot be handed over again until it comes back.
+	const overdue = useApi<BorrowRequest[]>(tab === "approved" ? "/requests?overdue=true" : null).state
+	const outItems = new Set(overdue.status === "ok" ? overdue.data.filter((r) => r.overdue).map((r) => r.item.id) : [])
 	const [decided, setDecided] = useState<ReadonlySet<string>>(new Set())
 	const [rows, setRows] = useState<Record<string, RowState>>({})
 	const [rejecting, setRejecting] = useState<BorrowRequest | null>(null)
@@ -311,7 +327,15 @@ export function Requests() {
 										/>
 									)
 								if (tab === "approved")
-									return <HandOverRow key={r.id} r={r} state={rows[r.id]} onCheckout={() => decide(r, "checkout")} />
+									return (
+										<HandOverRow
+											key={r.id}
+											r={r}
+											state={rows[r.id]}
+											outItems={outItems}
+											onCheckout={() => decide(r, "checkout")}
+										/>
+									)
 								if (tab === "checked-out")
 									return <ReturnRow key={r.id} r={r} state={rows[r.id]} onReturn={() => setReturning(r)} />
 								return <RequestRow key={r.id} r={r} showBorrower />

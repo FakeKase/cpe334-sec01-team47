@@ -1,8 +1,9 @@
 import { type FormEvent, useState } from "react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { ApiError, api } from "../api/client"
-import { type BorrowRequest, today } from "../api/requests"
+import { type BorrowRequest, formatDate, today } from "../api/requests"
+import { useApi } from "../api/useApi"
 import { border, describedBy, FieldError, input } from "../components/form"
 import { Alert, buttonClass } from "../components/states"
 
@@ -40,6 +41,11 @@ export function RequestForm({ itemId }: { itemId: string }) {
 	const [errors, setErrors] = useState<FieldErrors>({})
 	const [serverError, setServerError] = useState("")
 	const [submitting, setSubmitting] = useState(false)
+	// BR-08 (F-08): an overdue loan blocks new requests. Checked up front; while loading or on failure the server decides.
+	const overdue = useApi<BorrowRequest[]>("/requests?overdue=true").state
+	const loan = overdue.status === "ok" ? overdue.data.find((r) => r.overdue) : undefined
+	const [refused, setRefused] = useState(false)
+	const blocked = !!loan || refused
 
 	async function submit(e: FormEvent) {
 		e.preventDefault()
@@ -60,6 +66,7 @@ export function RequestForm({ itemId }: { itemId: string }) {
 			const fieldErrors: FieldErrors = {}
 			if (err instanceof ApiError)
 				for (const d of err.details) if (known.has(d.field)) fieldErrors[d.field as Field] ??= d.message
+			if (err instanceof ApiError && err.code === "OVERDUE_BLOCK") setRefused(true)
 			if (Object.keys(fieldErrors).length > 0) setErrors(fieldErrors)
 			else setServerError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.")
 			setSubmitting(false)
@@ -69,6 +76,15 @@ export function RequestForm({ itemId }: { itemId: string }) {
 	const trimmed = purpose.trim().length
 	return (
 		<form onSubmit={submit} noValidate className="mt-3 flex max-w-xl flex-col gap-4">
+			{loan && (
+				<Alert kind="error">
+					You have an overdue loan: {loan.item.name}, due {formatDate(loan.dueDate)}. Return it before making a new
+					request.{" "}
+					<Link to="/my-requests" className="font-medium text-link underline underline-offset-4">
+						View my requests
+					</Link>
+				</Alert>
+			)}
 			{serverError && <Alert kind="error">{serverError}</Alert>}
 
 			<div className="grid gap-4 sm:grid-cols-2">
@@ -130,7 +146,7 @@ export function RequestForm({ itemId }: { itemId: string }) {
 				</div>
 			</div>
 
-			<button type="submit" disabled={submitting} className={`${buttonClass()} self-start`}>
+			<button type="submit" disabled={submitting || blocked} className={`${buttonClass()} self-start`}>
 				Submit request
 			</button>
 		</form>
