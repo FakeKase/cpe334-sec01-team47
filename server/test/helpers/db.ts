@@ -34,7 +34,7 @@ export async function insertRequest(
 	startDate: string,
 	dueDate: string,
 	status: RequestStatus,
-	extra: { id?: string; createdAt?: Date; rejectionReason?: string } = {}
+	extra: { id?: string; createdAt?: Date; rejectionReason?: string; cancelledAt?: Date } = {}
 ) {
 	return prisma.borrowRequest.create({
 		data: {

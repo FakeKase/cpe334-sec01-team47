@@ -1,4 +1,4 @@
-/** Request resource shared by F-03, F-04 and F-05 (docs/sprints/sprint-1/F-03-submit-request.md §4). */
+/** Request resource shared by F-03 to F-06 (docs/sprints/sprint-1/F-03-submit-request.md §4). */
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "CHECKED_OUT" | "RETURNED"
 
 export type BorrowRequest = {
@@ -12,6 +12,7 @@ export type BorrowRequest = {
 	rejectionReason: string | null
 	decidedBy: { id: string; displayName: string } | null
 	decidedAt: string | null
+	cancelledAt: string | null
 	createdAt: string
 }
 
