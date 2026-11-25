@@ -1,6 +1,7 @@
-import type { ItemStatus, Prisma, PrismaClient, RequestStatus, Role } from "@prisma/client"
+import type { ItemStatus, Prisma, PrismaClient, RequestStatus, ReturnCondition, Role } from "@prisma/client"
 
 import { type Clock, today } from "../clock"
+import { checkoutWindow } from "../domain/checkoutWindow"
 import { validateLoanPeriod } from "../domain/loanPeriod"
 import { periodsOverlap } from "../domain/overlap"
 import { canTransition } from "../domain/transitions"
@@ -164,6 +165,65 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 			return toRequestResource(
 				await prisma.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
 			)
+		},
+
+		/** FR-12. Same lock as approve, so a checkout cannot interleave with an approval of the same item. Checks run in
+		 * contract order (F-07 §2): status, BR-09 window, item status. The guarded write then settles a race with a
+		 * Borrower's cancel: whoever updates the row first wins, the other gets 409. */
+		async checkout(custodianId: string, id: string) {
+			const { itemId } = await find(id)
+			return prisma.$transaction(async (tx) => {
+				const [item] = await tx.$queryRaw<{ status: ItemStatus }[]>`
+					SELECT status FROM "Item" WHERE id = ${itemId}::uuid FOR UPDATE`
+				const r = await tx.borrowRequest.findUniqueOrThrow({
+					where: { id },
+					select: { status: true, startDate: true, dueDate: true },
+				})
+				const notApproved = "Only approved requests can be checked out."
+				if (!canTransition(r.status, "CHECKED_OUT")) throw invalidTransition(notApproved)
+				const [start, due] = [ymd(r.startDate), ymd(r.dueDate)]
+				const window = checkoutWindow(start, due, today(clock, timeZone))
+				if (window === "early")
+					throw invalidTransition(`This request starts on ${start} and cannot be checked out before then.`)
+				if (window === "late")
+					throw invalidTransition("The due date has passed, so this request can only be cancelled.")
+				if (item!.status !== "ACTIVE")
+					throw new AppError("ITEM_NOT_AVAILABLE", 409, "This item is under maintenance, so it cannot be handed over.")
+
+				const { count } = await tx.borrowRequest.updateMany({
+					where: { id, status: "APPROVED" },
+					data: { status: "CHECKED_OUT", checkedOutById: custodianId, checkedOutAt: clock() },
+				})
+				if (count === 0) throw invalidTransition(notApproved)
+				return toRequestResource(
+					await tx.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
+				)
+			})
+		},
+
+		/** FR-13 and BR-10. `note` is already trimmed and at most 500 characters. A DAMAGED return sets the item to
+		 * MAINTENANCE in the same transaction. The item row lock orders it against approvals and checkouts. */
+		async returnItem(custodianId: string, id: string, condition: ReturnCondition, note?: string) {
+			const { itemId } = await find(id)
+			return prisma.$transaction(async (tx) => {
+				await tx.$queryRaw`SELECT id FROM "Item" WHERE id = ${itemId}::uuid FOR UPDATE`
+				const { count } = await tx.borrowRequest.updateMany({
+					where: { id, status: "CHECKED_OUT" },
+					data: {
+						status: "RETURNED",
+						returnedToId: custodianId,
+						returnedAt: clock(),
+						returnCondition: condition,
+						returnNote: note || null,
+					},
+				})
+				if (count === 0) throw invalidTransition("Only checked-out requests can be returned.")
+				if (condition === "DAMAGED")
+					await tx.item.updateMany({ where: { id: itemId, status: "ACTIVE" }, data: { status: "MAINTENANCE" } })
+				return toRequestResource(
+					await tx.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
+				)
+			})
 		},
 
 		/** Another Borrower's request is 404, not 403, so its existence is not revealed (DD-08). */

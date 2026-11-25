@@ -285,3 +285,22 @@ describe("Cancel a request (F-06, TEST-48, TEST-49, AC-42)", () => {
 		expect(await screen.findByText("Checked out")).toBeInTheDocument()
 	})
 })
+
+describe("A Borrower sees checkout and return (F-07, TEST-78, AC-65)", () => {
+	it("shows the Checked out and Returned badges and no Check out, Return or Cancel button on those rows", async () => {
+		signIn(oneOfEach)
+		renderApp("/my-requests")
+
+		await screen.findByText("Item pending")
+		for (const [name, badge] of [
+			["Item checked out", "Checked out"],
+			["Item returned", "Returned"],
+		] as const) {
+			const row = await rowFor(name)
+			expect(row.getByText(badge)).toBeInTheDocument()
+			for (const button of ["Check out", "Return", "Cancel"]) {
+				expect(row.queryByRole("button", { name: button })).not.toBeInTheDocument()
+			}
+		}
+	})
+})

@@ -1,6 +1,6 @@
 import type { RequestStatus } from "@prisma/client"
 
-/** BR-06. Sprint 1 only exposes PENDING -> APPROVED / REJECTED (F-05 §1). */
+/** BR-06, the full table. Approve and reject are F-05, cancel is F-06, checkout and return are F-07. */
 const ALLOWED: Record<RequestStatus, readonly RequestStatus[]> = {
 	PENDING: ["APPROVED", "REJECTED", "CANCELLED"],
 	APPROVED: ["CHECKED_OUT", "CANCELLED"],
