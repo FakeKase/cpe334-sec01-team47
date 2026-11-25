@@ -292,6 +292,8 @@ display name and role, and a **Log out** button. After login, Borrowers land on 
 | 409 | `ACTIVE_LIMIT_REACHED` | BR-05 |
 | 409 | `INVALID_TRANSITION` | BR-06 |
 | 409 | `OVERDUE_BLOCK` | BR-08 (S2) |
+| 409 | `ITEM_IN_USE` | BR-11: retiring an item with an approved or checked-out loan (S2) |
+| 409 | `DUPLICATE_ASSET_TAG` | BR-12: asset tag already used by another item (S2). `details` names `assetTag`. |
 | 429 | `TOO_MANY_ATTEMPTS` | NFR-14 (S2) |
 | 500 | `INTERNAL_ERROR` | Unexpected error. Details are logged on the server only (NFR-06). |
 

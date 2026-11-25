@@ -3,6 +3,7 @@ import { useNavigate } from "react-router"
 
 import { ApiError, api } from "../api/client"
 import { type BorrowRequest, today } from "../api/requests"
+import { border, describedBy, FieldError, input } from "../components/form"
 import { Alert, buttonClass } from "../components/states"
 
 const PURPOSE_MAX = 300
@@ -28,17 +29,6 @@ function validate(startDate: string, dueDate: string, purpose: string): FieldErr
 	if (length === 0) errors.purpose = "Purpose is required."
 	else if (length > PURPOSE_MAX) errors.purpose = `Purpose must be at most ${PURPOSE_MAX} characters.`
 	return errors
-}
-
-const input = "min-h-11 w-full rounded-lg border bg-page px-3 text-fg"
-const border = (error?: string) => (error ? "border-error-fg" : "border-line-strong")
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-	return message ? (
-		<p id={id} className="text-sm text-error-fg">
-			{message}
-		</p>
-	) : null
 }
 
 /** F-03: a Borrower requests the item for a period. On success it goes to My requests with a confirmation banner. */
@@ -93,7 +83,7 @@ export function RequestForm({ itemId }: { itemId: string }) {
 						value={startDate}
 						onChange={(e) => setStartDate(e.target.value)}
 						aria-invalid={!!errors.startDate}
-						aria-describedby="startDate-error"
+						aria-describedby={describedBy("startDate", errors.startDate)}
 						className={`${input} ${border(errors.startDate)}`}
 					/>
 					<FieldError id="startDate-error" message={errors.startDate} />
@@ -109,7 +99,7 @@ export function RequestForm({ itemId }: { itemId: string }) {
 						value={dueDate}
 						onChange={(e) => setDueDate(e.target.value)}
 						aria-invalid={!!errors.dueDate}
-						aria-describedby="dueDate-error"
+						aria-describedby={describedBy("dueDate", errors.dueDate)}
 						className={`${input} ${border(errors.dueDate)}`}
 					/>
 					<FieldError id="dueDate-error" message={errors.dueDate} />
@@ -126,7 +116,7 @@ export function RequestForm({ itemId }: { itemId: string }) {
 					value={purpose}
 					onChange={(e) => setPurpose(e.target.value)}
 					aria-invalid={!!errors.purpose}
-					aria-describedby="purpose-error purpose-count"
+					aria-describedby={describedBy("purpose", errors.purpose, "purpose-count")}
 					placeholder="What will you use it for?"
 					className={`${input} py-2 ${border(errors.purpose)}`}
 				/>

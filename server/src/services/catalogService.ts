@@ -19,9 +19,10 @@ export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClie
 	return {
 		listCategories: () => prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
 
-		async listItems(categoryId?: string) {
+		/** `includeRetired` is only passed for Custodians (F-09 §1). */
+		async listItems(categoryId?: string, includeRetired = false) {
 			const items = await prisma.item.findMany({
-				where: { status: { not: "RETIRED" }, ...(categoryId && { categoryId }) },
+				where: { ...(!includeRetired && { status: { not: "RETIRED" as const } }), ...(categoryId && { categoryId }) },
 				orderBy: [{ name: "asc" }, { assetTag: "asc" }],
 				select: {
 					id: true,
@@ -63,7 +64,8 @@ export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClie
 						},
 					})
 				: null
-			if (!item || item.status === "RETIRED") throw notFound()
+			// A Custodian can open a retired item to manage it (F-02 v0.2); for a Borrower it does not exist.
+			if (!item || (item.status === "RETIRED" && role !== "CUSTODIAN")) throw notFound()
 
 			const { requests, ...rest } = item
 			const t = todayDate()

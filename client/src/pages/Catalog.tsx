@@ -1,23 +1,28 @@
 import { useState } from "react"
 import { Link } from "react-router"
 
-import { availability, type Category, type ItemSummary } from "../api/catalog"
+import type { Category, ItemSummary } from "../api/catalog"
 import { useApi } from "../api/useApi"
-import { EmptyState, ErrorState, LoadingState } from "../components/states"
-
-export function StatusBadge({ item }: { item: Pick<ItemSummary, "status" | "availableToday"> }) {
-	const { label, tone } = availability(item)
-	return <span className={`inline-block rounded-full border px-2 py-0.5 text-sm ${tone}`}>{label}</span>
-}
+import { useAuth } from "../auth/AuthContext"
+import { buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
+import { StatusBadge } from "../components/StatusBadge"
 
 export function Catalog() {
+	const { user } = useAuth()
 	const [categoryId, setCategoryId] = useState("")
 	const categories = useApi<Category[]>("/categories")
 	const items = useApi<ItemSummary[]>(categoryId ? `/items?categoryId=${encodeURIComponent(categoryId)}` : "/items")
 
 	return (
 		<div>
-			<h1 className="text-2xl font-semibold">Catalog</h1>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-2xl font-semibold">Catalog</h1>
+				{user?.role === "CUSTODIAN" && (
+					<Link to="/manage/items/new" className={buttonClass()}>
+						Add item
+					</Link>
+				)}
+			</div>
 
 			<div className="mt-4 flex max-w-xs flex-col gap-1">
 				<label htmlFor="category" className="text-sm font-medium">

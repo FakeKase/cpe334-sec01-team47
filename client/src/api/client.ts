@@ -26,7 +26,7 @@ export const setUnauthorizedHandler = (fn: () => void) => {
 }
 
 type Options = {
-	method?: "GET" | "POST"
+	method?: "GET" | "POST" | "PATCH"
 	body?: unknown
 	/** Login and logout handle their own 401 (F-01 §1 steps 6 and 7). */
 	skip401?: boolean
