@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-06, BR-01, BR-02, BR-03, BR-04, BR-05, BR-13, NFR-02 |
 | **Depends on** | F-01 (auth, `requireRole`), F-02 (item detail page) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1.2 (draft, 2026-11-22). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-25). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -111,3 +111,4 @@ Tests: see [sts.md](sts.md) (TEST-17 to TEST-27, TEST-40).
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
 | 0.1.1 | 2026-11-13 | The 300-character purpose limit applies after trimming (§2, §6, AC-17). | F-03 implementation: the old wording did not say whether surrounding spaces count. The stored value is trimmed, so the limit applies to it. |
 | 0.1.2 | 2026-11-22 | The request resource gains `cancelledAt` (§4), always `null` on creation. | F-06 (Sprint 2) records when a Borrower cancels. Additive, no existing field changes. TEST-17 now also checks the key. |
+| 0.2 | 2026-11-25 | BR-08: a Borrower with an overdue loan gets 409 `OVERDUE_BLOCK`, checked after BR-01 and before the item ([F-08](../sprint-2/F-08-overdue-tracking.md) §1). BR-03 uses the effective end `max(dueDate, today)` of a `CHECKED_OUT` loan. The request resource gains `overdue` (§4). | F-08 (issue #11). Tested by AC-67, AC-69 and AC-70 (TEST-81, TEST-84 to TEST-86). |

@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-07, BR-14, NFR-02 |
 | **Depends on** | F-01, F-03 (request resource and data) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1 (draft, 2026-11-10). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-25). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -69,3 +69,4 @@ Tests: see [sts.md](sts.md) (TEST-28 to TEST-30, TEST-40).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
+| 0.2 | 2026-11-25 | `GET /api/requests` accepts `overdue=true` (own overdue loans, oldest due date first) and every request carries `overdue`. Scope and the default order are unchanged. | F-08 (issue #11). Tested by AC-67 and AC-68 (TEST-81 to TEST-83). |
