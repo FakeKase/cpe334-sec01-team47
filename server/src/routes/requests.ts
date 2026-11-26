@@ -30,7 +30,8 @@ const returnBody = z.object({
 })
 
 // Unknown keys such as borrowerId are stripped (F-04 contract §2).
-const listQuery = z.object({ status: z.enum(RequestStatus).optional() })
+// `overdue=true` keeps overdue loans only (F-08 §2).
+const listQuery = z.object({ status: z.enum(RequestStatus).optional(), overdue: z.enum(["true", "false"]).optional() })
 
 export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 	new Elysia()
@@ -43,7 +44,9 @@ export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 			},
 			{ body: newRequestBody, transform: requireRole("BORROWER") }
 		)
-		.get("/requests", ({ query, user }) => requests.list(user, query.status), { query: listQuery })
+		.get("/requests", ({ query, user }) => requests.list(user, query.status, query.overdue === "true"), {
+			query: listQuery,
+		})
 		.get("/requests/:id", ({ params, user }) => requests.get(user, params.id))
 		.post("/requests/:id/approve", ({ params, user }) => requests.approve(user.id, params.id), {
 			transform: requireRole("CUSTODIAN"),

@@ -19,6 +19,8 @@ export type BorrowRequest = {
 	returnedAt: string | null
 	returnCondition: "GOOD" | "DAMAGED" | null
 	returnNote: string | null
+	/** Derived by the server: CHECKED_OUT and due before today (F-08). */
+	overdue: boolean
 	createdAt: string
 }
 
@@ -53,6 +55,9 @@ const timeZone = import.meta.env.VITE_APP_TIMEZONE || "Asia/Bangkok"
 
 /** Today as YYYY-MM-DD in `timeZone`, the "today" that BR-01 compares against. */
 export const today = () => new Date().toLocaleDateString("en-CA", { timeZone })
+
+/** Whole days from `ymd` to today, e.g. how long a loan is overdue. */
+export const daysSince = (ymd: string) => Math.round((Date.parse(today()) - Date.parse(ymd)) / 86_400_000)
 
 /** The calendar day of a timestamp in `timeZone`. */
 export const formatTimestampDate = (iso: string) => {

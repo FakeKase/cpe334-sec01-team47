@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-12, FR-13, BR-06 (checkout and return part), BR-09, BR-10, BR-13, NFR-02, NFR-12, NFR-13 |
 | **Depends on** | F-05 (review queue, transition table), F-06 (cancel), F-09 (item status `MAINTENANCE`) |
 | **Sprint** | 2 |
-| **Contract version** | 0.1 (draft, 2026-11-25). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-25). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -60,9 +60,10 @@ for it until a Custodian sets it back to `ACTIVE` (F-09). BR-05 counts only `PEN
 | `PENDING`, `REJECTED`, `CANCELLED`, `CHECKED_OUT` or `RETURNED` | 409 `INVALID_TRANSITION` "Only approved requests can be checked out." Unchanged. |
 | Two checkouts of the same request at the same moment | Exactly one 200, the other 409 `INVALID_TRANSITION`. `checkedOutAt` is set once. |
 | A checkout and a Borrower's cancel of the same `APPROVED` request at the same moment | Exactly one wins. The request ends `CHECKED_OUT` or `CANCELLED`, never both, and the loser gets 409 `INVALID_TRANSITION`. |
+| `APPROVED` in its window, while another request on the item is still `CHECKED_OUT` (an overdue loan, v0.2) | 409 `PERIOD_UNAVAILABLE` "This item is still checked out on another loan." Unchanged. |
 
-The check order is: role, request exists, status, window, item status. A request outside its window is
-reported as a window error even if the item is also under maintenance.
+The check order is: role, request exists, status, window, item status, item still out. A request outside its
+window is reported as a window error even if the item is also under maintenance.
 
 ### Return
 
@@ -186,3 +187,4 @@ Tests: see [sts.md](sts.md) (TEST-65 to TEST-79).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-25 | Initial contract | Sprint 2 planning |
+| 0.2 | 2026-11-25 | Checkout is refused with 409 `PERIOD_UNAVAILABLE` while another request on the item is still `CHECKED_OUT`. | F-08 (issue #11): an overdue loan keeps the item, so a later approved request cannot be handed over. Tested by AC-72 (TEST-88). |

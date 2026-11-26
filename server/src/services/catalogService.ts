@@ -1,6 +1,7 @@
 import type { PrismaClient, Role } from "@prisma/client"
 
 import { type Clock, today } from "../clock"
+import { effectiveEnd, isOverdue } from "../domain/overdue"
 import { notFound } from "../errors"
 import { isUuid } from "../uuid"
 
@@ -10,8 +11,13 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10)
 export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {
 	// @db.Date columns come back as UTC midnight, so compare against UTC midnight of today.
 	const todayDate = () => new Date(today(clock, timeZone))
+	// A CHECKED_OUT loan holds the item until it is returned, even past its due date (BR-03, F-08).
+	const stillBooked = () => ({
+		status: { in: [...OCCUPYING] },
+		OR: [{ status: "CHECKED_OUT" as const }, { dueDate: { gte: todayDate() } }],
+	})
 	const bookedToday = () => ({
-		where: { status: { in: [...OCCUPYING] }, startDate: { lte: todayDate() }, dueDate: { gte: todayDate() } },
+		where: { ...stillBooked(), startDate: { lte: todayDate() } },
 		select: { id: true },
 		take: 1,
 	})
@@ -52,7 +58,7 @@ export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClie
 							status: true,
 							category: { select: { id: true, name: true } },
 							requests: {
-								where: { status: { in: [...OCCUPYING] }, dueDate: { gte: todayDate() } },
+								where: stillBooked(),
 								orderBy: { startDate: "asc" },
 								select: {
 									startDate: true,
@@ -68,14 +74,17 @@ export function catalogService({ prisma, clock, timeZone }: { prisma: PrismaClie
 			if (!item || (item.status === "RETIRED" && role !== "CUSTODIAN")) throw notFound()
 
 			const { requests, ...rest } = item
-			const t = todayDate()
+			const t = today(clock, timeZone)
+			const bookedOnDay = (r: (typeof requests)[number]) =>
+				ymd(r.startDate) <= t && effectiveEnd(r.status, ymd(r.dueDate), t) >= t
 			return {
 				...rest,
-				availableToday: item.status === "ACTIVE" && !requests.some((r) => r.startDate <= t && r.dueDate >= t),
+				availableToday: item.status === "ACTIVE" && !requests.some(bookedOnDay),
 				committedPeriods: requests.map((r) => ({
 					startDate: ymd(r.startDate),
 					dueDate: ymd(r.dueDate),
 					status: r.status,
+					overdue: isOverdue(r.status, ymd(r.dueDate), t),
 					...(role === "CUSTODIAN" && { borrower: { displayName: r.borrower.displayName } }),
 				})),
 			}

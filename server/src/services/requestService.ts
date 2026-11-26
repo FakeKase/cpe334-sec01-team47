@@ -3,6 +3,7 @@ import type { ItemStatus, Prisma, PrismaClient, RequestStatus, ReturnCondition, 
 import { type Clock, today } from "../clock"
 import { checkoutWindow } from "../domain/checkoutWindow"
 import { validateLoanPeriod } from "../domain/loanPeriod"
+import { effectiveEnd } from "../domain/overdue"
 import { periodsOverlap } from "../domain/overlap"
 import { canTransition } from "../domain/transitions"
 import { AppError, notFound } from "../errors"
@@ -27,6 +28,9 @@ const scope = (user: Caller): Prisma.BorrowRequestWhereInput =>
 const invalidTransition = (message = "Only pending requests can be approved or rejected.") =>
 	new AppError("INVALID_TRANSITION", 409, message)
 
+/** FR-14: a CHECKED_OUT request whose due date is before `today` (F-08). */
+const overdueWhere = (today: string) => ({ status: "CHECKED_OUT" as const, dueDate: { lt: new Date(today) } })
+
 type Decision = { status: "APPROVED" } | { status: "REJECTED"; rejectionReason: string }
 
 /** Guarded write: 0 rows updated means another decision got there first (F-05 §1 step 2.4). */
@@ -36,10 +40,13 @@ async function decide(db: Prisma.TransactionClient, id: string, decidedById: str
 		data: { ...d, decidedById, decidedAt },
 	})
 	if (count === 0) throw invalidTransition()
-	return toRequestResource(await db.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect }))
 }
 
 export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClient; clock: Clock; timeZone: string }) {
+	const now = () => today(clock, timeZone)
+	const reload = async (db: Prisma.TransactionClient, id: string) =>
+		toRequestResource(await db.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect }), now())
+
 	/** Custodian lookup for approve/reject: no scope, 404 for a malformed or unknown id. */
 	async function find(id: string) {
 		const row = isUuid(id)
@@ -53,8 +60,12 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 		/** FR-06. `input` is already schema-valid and `purpose` trimmed; the owner is always `borrowerId`. */
 		async create(borrowerId: string, input: NewRequest) {
 			const { itemId, startDate, dueDate, purpose } = input
-			const periodErrors = validateLoanPeriod(startDate, dueDate, today(clock, timeZone))
+			const t = now()
+			const periodErrors = validateLoanPeriod(startDate, dueDate, t)
 			if (periodErrors.length) throw new AppError("VALIDATION_ERROR", 400, "The request is invalid.", periodErrors)
+			// BR-08 depends only on the Borrower, so it comes before any item check (F-08 §1).
+			if (await prisma.borrowRequest.count({ where: { borrowerId, ...overdueWhere(t) } }))
+				throw new AppError("OVERDUE_BLOCK", 409, "You have an overdue loan. Return it before making a new request.")
 
 			const row = await prisma.$transaction(async (tx) => {
 				// Item first, then the borrower: serialises bookings of this item and BR-05 for this borrower.
@@ -71,7 +82,7 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 						where: { itemId, status: { in: [...ACTIVE] } },
 						select: { borrowerId: true, status: true, startDate: true, dueDate: true },
 					})
-				).filter((r) => periodsOverlap(startDate, dueDate, ymd(r.startDate), ymd(r.dueDate)))
+				).filter((r) => periodsOverlap(startDate, dueDate, ymd(r.startDate), effectiveEnd(r.status, ymd(r.dueDate), t)))
 
 				if (overlapping.some((r) => OCCUPYING.includes(r.status)))
 					throw new AppError("PERIOD_UNAVAILABLE", 409, "This item is already booked for part of that period.")
@@ -98,23 +109,28 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 					select: requestResourceSelect,
 				})
 			})
-			return toRequestResource(row)
+			return toRequestResource(row, t)
 		},
 
 		/** FR-07. Newest first, except the Custodian's pending queue, which is oldest first (F-05 §4).
-		 * Same createdAt → id ascending, so the order is stable. ponytail: no limit, pagination is a later sprint. */
-		async list(user: Caller, status?: RequestStatus) {
+		 * Same createdAt → id ascending, so the order is stable. `overdue` keeps overdue loans only, oldest due date
+		 * first (F-08 §2). ponytail: no limit, pagination is a later sprint. */
+		async list(user: Caller, status?: RequestStatus, overdue = false) {
+			const t = now()
 			const oldestFirst = user.role === "CUSTODIAN" && status === "PENDING"
 			const rows = await prisma.borrowRequest.findMany({
-				where: { ...scope(user), status },
-				orderBy: [{ createdAt: oldestFirst ? "asc" : "desc" }, { id: "asc" }],
+				where: { ...scope(user), AND: [{ status }, overdue ? overdueWhere(t) : {}] },
+				orderBy: overdue
+					? [{ dueDate: "asc" }, { createdAt: "asc" }, { id: "asc" }]
+					: [{ createdAt: oldestFirst ? "asc" : "desc" }, { id: "asc" }],
 				select: requestResourceSelect,
 			})
-			return rows.map(toRequestResource)
+			return rows.map((r) => toRequestResource(r, t))
 		},
 
 		/** FR-08. The item row lock serialises approvals of one item, so two overlapping approvals cannot both pass
-		 * BR-03 (NFR-05). Checks run in contract order: status, period ended, BR-02, BR-03. */
+		 * BR-03 (NFR-05). Checks run in contract order: status, period ended, BR-02, BR-03. An overdue loan occupies the
+		 * item up to today (F-08). */
 		async approve(custodianId: string, id: string) {
 			const { itemId } = await find(id)
 			return prisma.$transaction(async (tx) => {
@@ -126,7 +142,8 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				})
 				if (!canTransition(r.status, "APPROVED")) throw invalidTransition()
 				const [start, due] = [ymd(r.startDate), ymd(r.dueDate)]
-				if (due < today(clock, timeZone)) throw invalidTransition("This request's period has already ended.")
+				const t = now()
+				if (due < t) throw invalidTransition("This request's period has already ended.")
 				if (item!.status !== "ACTIVE")
 					throw new AppError(
 						"ITEM_NOT_AVAILABLE",
@@ -136,12 +153,14 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 
 				const booked = await tx.borrowRequest.findMany({
 					where: { itemId, id: { not: id }, status: { in: OCCUPYING } },
-					select: { startDate: true, dueDate: true },
+					select: { status: true, startDate: true, dueDate: true },
 				})
-				if (booked.some((b) => periodsOverlap(start, due, ymd(b.startDate), ymd(b.dueDate))))
+				const end = (b: (typeof booked)[number]) => effectiveEnd(b.status, ymd(b.dueDate), t)
+				if (booked.some((b) => periodsOverlap(start, due, ymd(b.startDate), end(b))))
 					throw new AppError("PERIOD_UNAVAILABLE", 409, "This item is already booked for part of that period.")
 
-				return decide(tx, id, custodianId, clock(), { status: "APPROVED" })
+				await decide(tx, id, custodianId, clock(), { status: "APPROVED" })
+				return reload(tx, id)
 			})
 		},
 
@@ -149,7 +168,8 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 		async reject(custodianId: string, id: string, reason: string) {
 			const { status } = await find(id)
 			if (!canTransition(status, "REJECTED")) throw invalidTransition()
-			return decide(prisma, id, custodianId, clock(), { status: "REJECTED", rejectionReason: reason })
+			await decide(prisma, id, custodianId, clock(), { status: "REJECTED", rejectionReason: reason })
+			return reload(prisma, id)
 		},
 
 		/** FR-11. Own request only (404 otherwise, DD-08). The guarded write means a concurrent cancel or approve that got
@@ -162,9 +182,7 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				data: { status: "CANCELLED", cancelledAt: clock() },
 			})
 			if (count === 0) throw invalidTransition("Only pending or approved requests can be cancelled.")
-			return toRequestResource(
-				await prisma.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
-			)
+			return reload(prisma, id)
 		},
 
 		/** FR-12. Same lock as approve, so a checkout cannot interleave with an approval of the same item. Checks run in
@@ -182,22 +200,23 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				const notApproved = "Only approved requests can be checked out."
 				if (!canTransition(r.status, "CHECKED_OUT")) throw invalidTransition(notApproved)
 				const [start, due] = [ymd(r.startDate), ymd(r.dueDate)]
-				const window = checkoutWindow(start, due, today(clock, timeZone))
+				const window = checkoutWindow(start, due, now())
 				if (window === "early")
 					throw invalidTransition(`This request starts on ${start} and cannot be checked out before then.`)
 				if (window === "late")
 					throw invalidTransition("The due date has passed, so this request can only be cancelled.")
 				if (item!.status !== "ACTIVE")
 					throw new AppError("ITEM_NOT_AVAILABLE", 409, "This item is under maintenance, so it cannot be handed over.")
+				// Only an overdue loan can still hold the item here: BR-03 kept the approved periods apart (F-07 v0.2).
+				if (await tx.borrowRequest.count({ where: { itemId, id: { not: id }, status: "CHECKED_OUT" } }))
+					throw new AppError("PERIOD_UNAVAILABLE", 409, "This item is still checked out on another loan.")
 
 				const { count } = await tx.borrowRequest.updateMany({
 					where: { id, status: "APPROVED" },
 					data: { status: "CHECKED_OUT", checkedOutById: custodianId, checkedOutAt: clock() },
 				})
 				if (count === 0) throw invalidTransition(notApproved)
-				return toRequestResource(
-					await tx.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
-				)
+				return reload(tx, id)
 			})
 		},
 
@@ -220,9 +239,7 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				if (count === 0) throw invalidTransition("Only checked-out requests can be returned.")
 				if (condition === "DAMAGED")
 					await tx.item.updateMany({ where: { id: itemId, status: "ACTIVE" }, data: { status: "MAINTENANCE" } })
-				return toRequestResource(
-					await tx.borrowRequest.findUniqueOrThrow({ where: { id }, select: requestResourceSelect })
-				)
+				return reload(tx, id)
 			})
 		},
 
@@ -232,7 +249,7 @@ export function requestService({ prisma, clock, timeZone }: { prisma: PrismaClie
 				? await prisma.borrowRequest.findFirst({ where: { id, ...scope(user) }, select: requestResourceSelect })
 				: null
 			if (!row) throw notFound()
-			return toRequestResource(row)
+			return toRequestResource(row, now())
 		},
 	}
 }

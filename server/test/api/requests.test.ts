@@ -54,6 +54,7 @@ describe("POST /api/requests creates a PENDING request owned by the caller (TEST
 				"dueDate",
 				"id",
 				"item",
+				"overdue", // F-03 v0.2 (F-08)
 				"purpose",
 				"rejectionReason",
 				"returnCondition",

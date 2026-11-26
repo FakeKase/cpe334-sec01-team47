@@ -440,3 +440,51 @@ describe("Custodian takes items back (F-07, TEST-77, AC-64)", () => {
 		expect(dialog.getByRole("button", { name: "Return item" })).toBeEnabled()
 	})
 })
+
+// F-08 (TEST-90, TEST-91). `overdue` comes from the server; the client never works it out.
+const late = {
+	...out,
+	id: "o2",
+	item: { id: "i-o2", assetTag: "CPE-0002", name: "ESP32 DevKit" },
+	dueDate: "2026-11-14",
+	overdue: true,
+}
+const onTime = { ...out, overdue: false }
+
+describe("Overdue label on Custodian rows (F-08, TEST-90, AC-74)", () => {
+	it("the All and Checked out tabs show Overdue only on the overdue loan", async () => {
+		signIn(custodian, { all: [late, onTime], checkedOut: [late, onTime] })
+		renderApp("/requests")
+
+		// The All tab shows the item name on its own line; the Checked out tab joins it with the asset tag.
+		for (const [tab, name] of [
+			["All", (item: string) => item],
+			["Checked out", (item: string, tag: string) => label(item, tag)],
+		] as const) {
+			await openTab(tab)
+			expect(await rowOf(name("ESP32 DevKit", "CPE-0002"))).toHaveTextContent("Overdue")
+			expect(await rowOf(name("Arduino Uno R3", "CPE-0001"))).not.toHaveTextContent("Overdue")
+			expect(within(screen.getByRole("tabpanel")).getAllByText("Overdue")).toHaveLength(1)
+		}
+	})
+})
+
+describe("Check out waits for an overdue loan on the same item (F-08, TEST-91, AC-74)", () => {
+	beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-15T05:00:00Z") }))
+	afterEach(() => vi.useRealTimers())
+
+	it("disables Check out with the reason when the item is still out on an overdue loan", async () => {
+		const sameItem = { ...loan("h5", "ESP32 DevKit", "CPE-0002", "2026-11-15", "2026-11-17"), item: late.item }
+		const otherItem = loan("h6", "Fluke 117 multimeter", "CPE-0202", "2026-11-15", "2026-11-17")
+		signIn(custodian, { approved: [sameItem, otherItem], all: [late, onTime] })
+		renderApp("/requests")
+		await openTab("Approved")
+
+		const button = async (name: string, tag: string) =>
+			within(await rowOf(label(name, tag))).getByRole("button", { name: "Check out" })
+		const blocked = await button("ESP32 DevKit", "CPE-0002")
+		await waitFor(() => expect(blocked).toHaveAccessibleDescription("Item still out on an overdue loan"))
+		expect(blocked).toBeDisabled()
+		expect(await button("Fluke 117 multimeter", "CPE-0202")).toBeEnabled()
+	})
+})

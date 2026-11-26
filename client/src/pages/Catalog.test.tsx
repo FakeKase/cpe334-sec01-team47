@@ -165,6 +165,28 @@ describe("Item detail (F-02)", () => {
 		expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled()
 	})
 
+	it("marks an overdue loan among the booked periods (F-08, TEST-93, AC-76)", async () => {
+		signIn(borrower)
+		server.use(
+			http.get("/api/items/i1", () =>
+				HttpResponse.json(
+					detail({
+						availableToday: false,
+						committedPeriods: [
+							{ startDate: "2026-11-10", dueDate: "2026-11-14", status: "CHECKED_OUT", overdue: true },
+							{ startDate: "2026-11-20", dueDate: "2026-11-22", status: "APPROVED", overdue: false },
+						],
+					})
+				)
+			)
+		)
+		renderApp("/items/i1")
+
+		expect(await screen.findByText(/2026-11-10 – 2026-11-14/)).toHaveTextContent("Overdue, not returned yet")
+		expect(screen.getByText(/2026-11-20 – 2026-11-22/)).not.toHaveTextContent("Overdue")
+		expect(screen.getByText("Booked today")).toBeInTheDocument()
+	})
+
 	it("shows the 404 page for an unknown item", async () => {
 		signIn(borrower)
 		server.use(

@@ -61,6 +61,7 @@ export function ItemDetail() {
 							<li key={`${p.startDate}-${p.dueDate}`} className="rounded-lg border border-line bg-surface px-3 py-2">
 								{p.startDate} – {p.dueDate}
 								{p.borrower && <span className="text-muted"> · {p.borrower.displayName}</span>}
+								{p.overdue && <span className="text-error-fg"> · Overdue, not returned yet</span>}
 							</li>
 						))}
 					</ul>
