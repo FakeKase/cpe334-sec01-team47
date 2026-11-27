@@ -12,7 +12,7 @@
 
 # --- Stage 1: Build static frontend files -------------------------------------
 # CHANGE ME: base image and build commands for your frontend.
-FROM oven/bun:1.4.4-alpine AS build
+FROM oven/bun:1.4.5-alpine AS build
 WORKDIR /app/client
 
 # The build context is the repository root (see docker-compose.yml), because the
