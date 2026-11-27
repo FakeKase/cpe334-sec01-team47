@@ -18,12 +18,12 @@
 	"devDependencies": {
 		"@commitlint/cli": "^21.2.4",
 		"@commitlint/config-conventional": "^21.2.4",
-		"@playwright/test": "1.64.1",
+		"@playwright/test": "1.65.1",
 		"husky": "^9.1.7",
-		"lint-staged": "^17.6.0",
-		"oxfmt": "^0.78.0",
-		"oxlint": "^1.93.0",
-		"turbo": "^2.11.11"
+		"lint-staged": "^17.6.2",
+		"oxfmt": "^0.80.0",
+		"oxlint": "^1.95.0",
+		"turbo": "^2.11.13"
 	},
 	"lint-staged": {
 		"*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
