@@ -42,7 +42,7 @@
 # Stage 1: Build Frontend (React + TypeScript + Vite)
 # ============================================================================
 # CHANGE ME: replace with your frontend toolchain (delete the stage if none).
-FROM oven/bun:1.4.4-alpine AS client-builder
+FROM oven/bun:1.4.5-alpine AS client-builder
 WORKDIR /app
 # Copy package files first so `bun install` is cached until dependencies change.
 # The lockfile is the workspace root's; --filter installs only the client's dependencies.
@@ -60,7 +60,7 @@ RUN bun run build
 # Stage 2: Build Backend (Elysia + TypeScript + Prisma)
 # ============================================================================
 # CHANGE ME: replace with your backend build (compile / package your app).
-FROM oven/bun:1.4.4-alpine AS server-builder
+FROM oven/bun:1.4.5-alpine AS server-builder
 WORKDIR /app
 # Prisma needs openssl on alpine.
 RUN apk add --no-cache openssl
@@ -78,7 +78,7 @@ RUN bunx prisma generate && bun run typecheck
 # ============================================================================
 # `prisma` is a runtime dependency on purpose: the Cloud Run migration job runs
 # `bunx prisma migrate deploy` from this image.
-FROM oven/bun:1.4.4-alpine AS server-runtime-deps
+FROM oven/bun:1.4.5-alpine AS server-runtime-deps
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package.json bun.lock ./
@@ -93,7 +93,7 @@ RUN bunx prisma generate
 # Stage 4: Unified Production Runtime (Serves API + Built React SPA on :3000)
 # ============================================================================
 # ⭐ IMPORTANT: this is the stage that actually runs on Cloud Run.
-FROM oven/bun:1.4.4-alpine AS production
+FROM oven/bun:1.4.5-alpine AS production
 WORKDIR /app/server
 RUN apk add --no-cache openssl
 
