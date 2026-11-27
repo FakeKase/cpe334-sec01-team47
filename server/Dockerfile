@@ -11,7 +11,7 @@
 # ==============================================================================
 
 # CHANGE ME: base image for your backend runtime.
-FROM oven/bun:1.4.4-alpine
+FROM oven/bun:1.4.5-alpine
 WORKDIR /app/server
 # Prisma requires openssl on alpine.
 RUN apk add --no-cache openssl
