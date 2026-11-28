@@ -10,13 +10,11 @@ const select = { id: true, name: true } as const
 
 /** F-10. `name` is already trimmed and 1-60 characters. Names are unique ignoring letter case. */
 export function categoryService(prisma: PrismaClient) {
-	/** Another category (not `exceptId`) already has this name, in any letter case. */
-	const taken = async (name: string, exceptId?: string) =>
-		(await prisma.category.count({
-			where: { name: { equals: name, mode: "insensitive" }, ...(exceptId && { id: { not: exceptId } }) },
-		})) > 0
-
-	/** The unique indexes are the last line of defence: when two calls race, the loser gets the same 409. */
+	/**
+	 * The unique index on lower("name") is the only duplicate check. A pre-check with Prisma's
+	 * `mode: "insensitive"` would run as ILIKE and treat % and _ as wildcards (AC-79). The index also
+	 * covers two calls that race, and lets a category be renamed to its own name in other letter case.
+	 */
 	async function write<T>(run: () => Promise<T>): Promise<T> {
 		try {
 			return await run()
@@ -31,14 +29,12 @@ export function categoryService(prisma: PrismaClient) {
 
 	return {
 		async create(name: string) {
-			if (await taken(name)) throw duplicate()
 			return write(() => prisma.category.create({ data: { name }, select }))
 		},
 
 		/** Renaming a category to its own name, in any letter case, is allowed. */
 		async rename(id: string, name: string) {
 			if (!isUuid(id)) throw notFound()
-			if (await taken(name, id)) throw duplicate()
 			return write(() => prisma.category.update({ where: { id }, data: { name }, select }))
 		},
 	}
