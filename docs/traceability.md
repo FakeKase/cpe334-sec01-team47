@@ -23,12 +23,12 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-08 Custodian request list / queue | F-05 | 1 | AC-27, AC-35 / TEST-31, TEST-41 |
 | FR-09 Approve | F-05 | 1 | AC-28 / TEST-32, TEST-40, TEST-41 |
 | FR-10 Reject with reason | F-05 | 1 | AC-31 / TEST-35, TEST-41 |
-| FR-11 Cancel | F-06 | 2 | Planned: API tests per allowed/forbidden state; E2E cancel |
-| FR-12 Checkout | F-07 | 2 | Planned: API tests incl. BR-09 window boundaries |
-| FR-13 Return | F-07 | 2 | Planned: API tests GOOD/DAMAGED; DB check item status |
-| FR-14 Overdue | F-08 | 2 | Planned: unit tests on overdue derivation with fixed clock; API list test; F-02 regression test that an overdue `CHECKED_OUT` loan stays in `committedPeriods` and makes `availableToday` false |
-| FR-15 Create/edit items | F-09 | 2 | Planned: API tests incl. BR-12; E2E create item |
-| FR-16 Item status | F-09 | 2 | Planned: API tests incl. BR-11 |
+| FR-11 Cancel | F-06 | 2 | AC-36 to AC-42 / TEST-42 to TEST-50 (API per allowed and forbidden state, concurrency, component, E2E) |
+| FR-12 Checkout | F-07 | 2 | AC-55 to AC-59, AC-64, AC-65 / TEST-65 to TEST-70, TEST-75, TEST-76, TEST-78, TEST-79 (API, window boundaries, concurrency, component, E2E) |
+| FR-13 Return | F-07 | 2 | AC-58 to AC-65 / TEST-69 to TEST-74, TEST-77 to TEST-79 (API GOOD and DAMAGED, DB check of the item status, validation, component, E2E) |
+| FR-14 Overdue | F-08 | 2 | AC-66 to AC-68, AC-73 to AC-75 / TEST-80 (unit, fixed clock), TEST-81 to TEST-83, TEST-89 (API, incl. the F-02 regression), TEST-90 to TEST-92 (component) |
+| FR-15 Create/edit items | F-09 | 2 | AC-43–AC-46, AC-52, AC-54 / TEST-51, TEST-53–TEST-55, TEST-61, TEST-63, TEST-64 |
+| FR-16 Item status | F-09 | 2 | AC-47, AC-48, AC-51, AC-53 / TEST-56, TEST-57, TEST-60, TEST-62, TEST-64 |
 | FR-17 Categories | F-10 | 3 | Planned: API tests (unique name, custodian-only) |
 | FR-18 Search / availability | F-11 | 3 | Planned: API tests on overlap-based availability filter |
 | FR-19 Item history | F-12 | 3 | Planned: API test ordering + custodian-only |
@@ -41,17 +41,17 @@ verification. Their AC and tests are written when those contracts are prepared.
 |---|---|---|---|
 | BR-01 Valid loan period | F-03 | 1 | AC-16 / TEST-18 (unit), TEST-19 |
 | BR-02 Only active items | F-03 (create), F-05 (approve) | 1 | AC-18, AC-30 / TEST-21, TEST-34 |
-| BR-03 No double booking | F-03, F-05; overdue extension in F-08 (also changes F-02) | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39; extension planned in F-08 |
+| BR-03 No double booking | F-03, F-05; overdue extension in F-08 (also changes F-02) | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39; AC-70 to AC-72 / TEST-86 to TEST-88 (overdue extension, incl. checkout) |
 | BR-04 No duplicate request | F-03 | 1 | AC-20 / TEST-24 |
 | BR-05 Active request limit | F-03 | 1 | AC-21 / TEST-25 |
-| BR-06 Lifecycle transitions | F-05 (approve/reject); F-06, F-07 (rest) | 1, 2 | AC-32 / TEST-36 (unit, full table), TEST-37; remaining transitions planned in F-06/F-07 |
+| BR-06 Lifecycle transitions | F-05 (approve/reject); F-06, F-07 (rest) | 1, 2 | AC-32 / TEST-36 (unit, full table), TEST-37; cancel in F-06 (AC-39); checkout and return in F-07 (AC-57, AC-63 / TEST-68, TEST-74) |
 | BR-07 Rejection reason | F-05 | 1 | AC-31 / TEST-35 |
-| BR-08 Overdue borrowers blocked | F-08 | 2 | Planned: API test with fixed clock |
-| BR-09 Checkout window | F-07 | 2 | Planned: unit + API boundary tests |
-| BR-10 Damage → maintenance | F-07 | 2 | Planned: API + DB test |
-| BR-11 Safe retirement | F-09 | 2 | Planned: API tests (blocked; pending auto-rejected) |
-| BR-12 Unique asset tag | F-09 | 2 | Planned: API tests (duplicate, case, format) |
-| BR-13 Role separation | F-01 (role guard), F-03, F-05 | 1 | AC-22, AC-33 / TEST-26, TEST-38 |
+| BR-08 Overdue borrowers blocked | F-08 | 2 | AC-69, AC-76 / TEST-84, TEST-85 (API, fixed clock), TEST-93 (component) |
+| BR-09 Checkout window | F-07 | 2 | AC-56, AC-57 / TEST-66 (unit), TEST-67, TEST-68, TEST-75 |
+| BR-10 Damage → maintenance | F-07 | 2 | AC-61, AC-63 / TEST-72, TEST-74, TEST-79 |
+| BR-11 Safe retirement | F-09 | 2 | AC-48, AC-49, AC-53 / TEST-57, TEST-58, TEST-62 |
+| BR-12 Unique asset tag | F-09 | 2 | AC-44, AC-52 / TEST-52 (unit), TEST-53, TEST-55, TEST-61 |
+| BR-13 Role separation | F-01 (role guard), F-03, F-05, F-09 | 1, 2 | AC-22, AC-33, AC-50 / TEST-26, TEST-38, TEST-59 |
 | BR-14 Ownership | F-04 | 1 | AC-25 / TEST-29 |
 
 ### Non-functional requirements

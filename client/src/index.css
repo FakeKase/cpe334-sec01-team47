@@ -5,6 +5,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+	color-scheme: light;
 	--color-bg-page: #f8fafc;
 	--color-bg-surface: #ffffff;
 	--color-bg-inverse: #0f172a;
@@ -40,6 +41,8 @@
 }
 
 .dark {
+	/* Native controls follow the theme: the date input's calendar icon and picker, scrollbars. */
+	color-scheme: dark;
 	--color-bg-page: #0f172a;
 	--color-bg-surface: #1e293b;
 	--color-bg-inverse: #f8fafc;

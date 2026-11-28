@@ -1,4 +1,4 @@
-/** Request resource shared by F-03, F-04 and F-05 (docs/sprints/sprint-1/F-03-submit-request.md §4). */
+/** Request resource shared by F-03 to F-07 (docs/sprints/sprint-1/F-03-submit-request.md §4; checkout and return fields from F-07 §4). */
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "CHECKED_OUT" | "RETURNED"
 
 export type BorrowRequest = {
@@ -12,6 +12,15 @@ export type BorrowRequest = {
 	rejectionReason: string | null
 	decidedBy: { id: string; displayName: string } | null
 	decidedAt: string | null
+	cancelledAt: string | null
+	checkedOutBy: { id: string; displayName: string } | null
+	checkedOutAt: string | null
+	returnedTo: { id: string; displayName: string } | null
+	returnedAt: string | null
+	returnCondition: "GOOD" | "DAMAGED" | null
+	returnNote: string | null
+	/** Derived by the server: CHECKED_OUT and due before today (F-08). */
+	overdue: boolean
 	createdAt: string
 }
 
@@ -29,7 +38,8 @@ export const requestStatus: Record<RequestStatus, { label: string; tone: string 
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const YMD = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
-const dayMonth = (ymd: string) => `${Number(ymd.slice(8, 10))} ${MONTHS[Number(ymd.slice(5, 7)) - 1]}`
+/** "2026-11-23" → "23 Nov". */
+export const dayMonth = (ymd: string) => `${Number(ymd.slice(8, 10))} ${MONTHS[Number(ymd.slice(5, 7)) - 1]}`
 
 /** "2026-11-20" → "20 Nov 2026". A malformed value is shown as it is. */
 export const formatDate = (ymd: string) => (YMD.test(ymd) ? `${dayMonth(ymd)} ${ymd.slice(0, 4)}` : ymd)
@@ -45,6 +55,9 @@ const timeZone = import.meta.env.VITE_APP_TIMEZONE || "Asia/Bangkok"
 
 /** Today as YYYY-MM-DD in `timeZone`, the "today" that BR-01 compares against. */
 export const today = () => new Date().toLocaleDateString("en-CA", { timeZone })
+
+/** Whole days from `ymd` to today, e.g. how long a loan is overdue. */
+export const daysSince = (ymd: string) => Math.round((Date.parse(today()) - Date.parse(ymd)) / 86_400_000)
 
 /** The calendar day of a timestamp in `timeZone`. */
 export const formatTimestampDate = (iso: string) => {

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react"
+import { fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
 
@@ -199,5 +199,40 @@ describe("Request form (F-03, AC-23, TEST-27)", () => {
 		await fill(addDays(1), addDays(3))
 		await submit()
 		expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.")
+	})
+})
+
+describe("Overdue borrowers are blocked (F-08, TEST-93, AC-76, BR-08)", () => {
+	const overdueLoan = { ...created, id: "r9", status: "CHECKED_OUT", dueDate: "2026-11-14", overdue: true }
+
+	it("names the overdue loan, links to My requests and disables Submit before anything is sent", async () => {
+		const sent = setup()
+		server.use(
+			http.get("/api/requests", ({ request }) =>
+				HttpResponse.json(new URL(request.url).searchParams.get("overdue") === "true" ? [overdueLoan] : [])
+			)
+		)
+		renderApp("/items/i1")
+
+		const alert = await screen.findByRole("alert")
+		expect(alert).toHaveTextContent(
+			"You have an overdue loan: Rigol DS1054Z oscilloscope, due 14 Nov 2026. Return it before making a new request."
+		)
+		expect(within(alert).getByRole("link", { name: "View my requests" })).toHaveAttribute("href", "/my-requests")
+		expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled()
+		expect(sent).toHaveLength(0)
+	})
+
+	it("shows the server's OVERDUE_BLOCK and disables Submit", async () => {
+		const message = "You have an overdue loan. Return it before making a new request."
+		const sent = setup(() => HttpResponse.json({ error: { code: "OVERDUE_BLOCK", message } }, { status: 409 }))
+		server.use(http.get("/api/requests", () => HttpResponse.json([])))
+		renderApp("/items/i1")
+
+		await fill(addDays(1), addDays(3))
+		await submit()
+		expect(await screen.findByRole("alert")).toHaveTextContent(message)
+		expect(screen.getByRole("button", { name: "Submit request" })).toBeDisabled()
+		expect(sent).toHaveLength(1)
 	})
 })

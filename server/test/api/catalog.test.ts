@@ -121,12 +121,12 @@ describe("GET /api/items/:id (TEST-14)", () => {
 			"name",
 			"status",
 		])
-		expect(b.body.committedPeriods).toEqual([{ startDate: "2026-11-20", dueDate: "2026-11-22", status: "APPROVED" }])
+		// `overdue` from F-02 v0.3 (F-08).
+		const period = { startDate: "2026-11-20", dueDate: "2026-11-22", status: "APPROVED", overdue: false }
+		expect(b.body.committedPeriods).toEqual([period])
 
 		const c = await api().get(`/api/items/${item.id}`).set(as(custodian))
-		expect(c.body.committedPeriods).toEqual([
-			{ startDate: "2026-11-20", dueDate: "2026-11-22", status: "APPROVED", borrower: { displayName: "Borrower Two" } },
-		])
+		expect(c.body.committedPeriods).toEqual([{ ...period, borrower: { displayName: "Borrower Two" } }])
 	})
 
 	it("404 for an unknown id, a non-UUID and a retired item", async () => {

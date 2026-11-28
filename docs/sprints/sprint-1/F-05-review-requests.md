@@ -5,7 +5,7 @@
 | **Linked requirements** | FR-08, FR-09, FR-10, BR-02, BR-03, BR-06 (approve/reject part), BR-07, BR-13, NFR-02, NFR-05 |
 | **Depends on** | F-01, F-03, F-04 (shared list/detail endpoints) |
 | **Sprint** | 1 |
-| **Contract version** | 0.1 (draft, 2026-11-10). See [version history](#version-history). |
+| **Contract version** | 0.2 (draft, 2026-11-25). See [version history](#version-history). |
 
 ## 1. Behavior and workflow
 
@@ -110,3 +110,4 @@ Tests: see [sts.md](sts.md) (TEST-31 to TEST-41).
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Initial contract | Sprint 1 planning |
+| 0.2 | 2026-11-25 | The BR-03 recheck on approve uses the effective end `max(dueDate, today)` of a `CHECKED_OUT` loan, so an overdue loan blocks approvals up to today. | F-08 (issue #11). Tested by AC-71 (TEST-87). |

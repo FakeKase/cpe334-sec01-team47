@@ -1,14 +1,60 @@
 import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
 
+import { api, type ApiError } from "../api/client"
 import type { BorrowRequest } from "../api/requests"
 import { useApi } from "../api/useApi"
+import { CancelDialog } from "../components/CancelDialog"
 import { card, RequestRow } from "../components/RequestRow"
-import { Alert, EmptyState, ErrorState, LoadingState } from "../components/states"
+import { Alert, buttonClass, EmptyState, ErrorState, LoadingState } from "../components/states"
+import { Toast } from "../components/Toast"
 
-/** F-04: the Borrower's own requests, newest first (the server applies the scope and the order). */
+const cancellable = (r: BorrowRequest) => r.status === "PENDING" || r.status === "APPROVED"
+
+/** F-04: the Borrower's own requests, newest first (the server applies the scope and the order). F-06 adds Cancel. */
 export function MyRequests() {
 	const { state, retry } = useApi<BorrowRequest[]>("/requests")
+	const [cancelling, setCancelling] = useState<BorrowRequest | null>(null)
+	const [busy, setBusy] = useState(false)
+	const [dialogError, setDialogError] = useState<string>()
+	const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
+	// A cancelled request replaces its row until the next load, so the list does not flash or jump.
+	const [updated, setUpdated] = useState<Record<string, BorrowRequest>>({})
+	// `at` makes every toast a new value, so a second cancel while one is showing restarts the 4 s timer (as in Requests.tsx).
+	const [toast, setToast] = useState<{ message: string; at: number }>()
+
+	useEffect(() => {
+		if (!toast) return
+		const timer = setTimeout(() => setToast(undefined), 4000)
+		return () => clearTimeout(timer)
+	}, [toast])
+
+	function closeDialog() {
+		setCancelling(null)
+		setDialogError(undefined)
+	}
+
+	async function confirmCancel(r: BorrowRequest) {
+		setBusy(true)
+		setDialogError(undefined)
+		try {
+			const result = await api<BorrowRequest>(`/requests/${r.id}/cancel`, { method: "POST" })
+			setUpdated((u) => ({ ...u, [r.id]: result }))
+			setRowErrors((errs) => Object.fromEntries(Object.entries(errs).filter(([id]) => id !== r.id)))
+			setToast({ message: "Request cancelled", at: Date.now() })
+			closeDialog()
+		} catch (e) {
+			const { status, message } = e as ApiError
+			if (status === 409 || status === 404) {
+				// The request is no longer cancellable (F-06 §6): say why on its row and reload the list.
+				setRowErrors((errs) => ({ ...errs, [r.id]: message }))
+				closeDialog()
+				retry()
+			} else setDialogError(message)
+		} finally {
+			setBusy(false)
+		}
+	}
 	// F-03 navigates here with `{ state: { submitted: true } }` after a successful submit. The flag is read once and
 	// then cleared from history, so Back or a reload does not show the banner again.
 	const location = useLocation()
@@ -49,12 +95,38 @@ export function MyRequests() {
 						</div>
 					) : (
 						<ul className="flex flex-col gap-3">
-							{state.data.map((r) => (
-								<RequestRow key={r.id} r={r} />
-							))}
+							{state.data.map((original) => {
+								const r = updated[original.id] ?? original
+								return (
+									<RequestRow
+										key={r.id}
+										r={r}
+										error={rowErrors[r.id]}
+										actionColumn
+										action={
+											cancellable(r) && (
+												<button type="button" className={buttonClass("secondary")} onClick={() => setCancelling(r)}>
+													Cancel
+												</button>
+											)
+										}
+									/>
+								)
+							})}
 						</ul>
 					))}
 			</div>
+
+			{cancelling && (
+				<CancelDialog
+					request={cancelling}
+					busy={busy}
+					error={dialogError}
+					onKeep={closeDialog}
+					onConfirm={() => void confirmCancel(cancelling)}
+				/>
+			)}
+			<Toast message={toast?.message} />
 		</div>
 	)
 }

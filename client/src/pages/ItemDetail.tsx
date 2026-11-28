@@ -4,7 +4,7 @@ import type { ItemDetail as Item } from "../api/catalog"
 import { useApi } from "../api/useApi"
 import { useAuth } from "../auth/AuthContext"
 import { buttonClass, ErrorState, LoadingState } from "../components/states"
-import { StatusBadge } from "./Catalog"
+import { StatusBadge } from "../components/StatusBadge"
 import { RequestForm } from "./RequestForm"
 import { NotFound } from "./SystemPages"
 
@@ -25,6 +25,11 @@ export function ItemDetail() {
 			<div className="mt-3 flex flex-wrap items-center gap-3">
 				<h1 className="text-2xl font-semibold">{item.name}</h1>
 				<StatusBadge item={item} />
+				{user?.role === "CUSTODIAN" && (
+					<Link to={`/manage/items/${item.id}`} className={`${buttonClass("secondary")} ml-auto`}>
+						Edit
+					</Link>
+				)}
 			</div>
 
 			<dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
@@ -56,6 +61,7 @@ export function ItemDetail() {
 							<li key={`${p.startDate}-${p.dueDate}`} className="rounded-lg border border-line bg-surface px-3 py-2">
 								{p.startDate} – {p.dueDate}
 								{p.borrower && <span className="text-muted"> · {p.borrower.displayName}</span>}
+								{p.overdue && <span className="text-error-fg"> · Overdue, not returned yet</span>}
 							</li>
 						))}
 					</ul>

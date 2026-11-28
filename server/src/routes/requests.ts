@@ -1,4 +1,4 @@
-import { RequestStatus } from "@prisma/client"
+import { RequestStatus, ReturnCondition } from "@prisma/client"
 import { Elysia } from "elysia"
 import { z } from "zod"
 
@@ -23,8 +23,15 @@ const rejectBody = z.object({
 		.max(500, "Reason can be at most 500 characters."),
 })
 
+// F-07: the condition is required, the note is optional and at most 500 characters after trimming. Unknown keys are stripped.
+const returnBody = z.object({
+	condition: z.enum(ReturnCondition, { error: "Condition must be GOOD or DAMAGED." }),
+	note: z.string().trim().max(500, "Note can be at most 500 characters.").optional(),
+})
+
 // Unknown keys such as borrowerId are stripped (F-04 contract §2).
-const listQuery = z.object({ status: z.enum(RequestStatus).optional() })
+// `overdue=true` keeps overdue loans only (F-08 §2).
+const listQuery = z.object({ status: z.enum(RequestStatus).optional(), overdue: z.enum(["true", "false"]).optional() })
 
 export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 	new Elysia()
@@ -37,10 +44,23 @@ export const requestRoutes = (auth: AuthService, requests: RequestService) =>
 			},
 			{ body: newRequestBody, transform: requireRole("BORROWER") }
 		)
-		.get("/requests", ({ query, user }) => requests.list(user, query.status), { query: listQuery })
+		.get("/requests", ({ query, user }) => requests.list(user, query.status, query.overdue === "true"), {
+			query: listQuery,
+		})
 		.get("/requests/:id", ({ params, user }) => requests.get(user, params.id))
 		.post("/requests/:id/approve", ({ params, user }) => requests.approve(user.id, params.id), {
 			transform: requireRole("CUSTODIAN"),
+		})
+		.post("/requests/:id/checkout", ({ params, user }) => requests.checkout(user.id, params.id), {
+			transform: requireRole("CUSTODIAN"),
+		})
+		.post(
+			"/requests/:id/return",
+			({ params, body, user }) => requests.returnItem(user.id, params.id, body.condition, body.note),
+			{ body: returnBody, transform: requireRole("CUSTODIAN") }
+		)
+		.post("/requests/:id/cancel", ({ params, user }) => requests.cancel(user.id, params.id), {
+			transform: requireRole("BORROWER"),
 		})
 		.post("/requests/:id/reject", ({ params, body, user }) => requests.reject(user.id, params.id, body.reason), {
 			body: rejectBody,

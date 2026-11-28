@@ -45,14 +45,22 @@ describe("POST /api/requests creates a PENDING request owned by the caller (TEST
 		expect(Object.keys(res.body).sort()).toEqual(
 			[
 				"borrower",
+				"cancelledAt",
+				"checkedOutAt",
+				"checkedOutBy",
 				"createdAt",
 				"decidedAt",
 				"decidedBy",
 				"dueDate",
 				"id",
 				"item",
+				"overdue", // F-03 v0.2 (F-08)
 				"purpose",
 				"rejectionReason",
+				"returnCondition",
+				"returnNote",
+				"returnedAt",
+				"returnedTo",
 				"startDate",
 				"status",
 			].sort()
@@ -67,6 +75,13 @@ describe("POST /api/requests creates a PENDING request owned by the caller (TEST
 			rejectionReason: null,
 			decidedBy: null,
 			decidedAt: null,
+			cancelledAt: null,
+			checkedOutBy: null,
+			checkedOutAt: null,
+			returnedTo: null,
+			returnedAt: null,
+			returnCondition: null,
+			returnNote: null,
 		})
 		expect(new Date(res.body.createdAt).toISOString()).toBe(res.body.createdAt)
 
