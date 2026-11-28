@@ -6,6 +6,7 @@ import { ASSET_TAG_MESSAGE, isAssetTag, normalizeAssetTag } from "../domain/asse
 import { requireAuth, requireRole } from "../middleware/auth"
 import type { AuthService } from "../services/authService"
 import type { CatalogService } from "../services/catalogService"
+import type { CategoryService } from "../services/categoryService"
 import type { InventoryService } from "../services/inventoryService"
 
 /** Trimmed; "" and null clear the field, a missing key stays undefined so PATCH leaves it alone. */
@@ -30,7 +31,21 @@ const itemBody = z.object({
 	description: optionalText("Description", 1000),
 })
 
-export const catalogRoutes = (auth: AuthService, catalog: CatalogService, inventory: InventoryService) =>
+// F-10 §2. Unknown keys are stripped.
+const categoryBody = z.object({
+	name: z
+		.string({ error: "Name is required." })
+		.trim()
+		.min(1, "Name is required.")
+		.max(60, "Name can be at most 60 characters."),
+})
+
+export const catalogRoutes = (
+	auth: AuthService,
+	catalog: CatalogService,
+	inventory: InventoryService,
+	categories: CategoryService
+) =>
 	new Elysia()
 		.get("/categories", () => catalog.listCategories())
 		.use(requireAuth(auth))
@@ -45,6 +60,18 @@ export const catalogRoutes = (auth: AuthService, catalog: CatalogService, invent
 				}),
 			}
 		)
+		.post(
+			"/categories",
+			async ({ body, set }) => {
+				set.status = 201
+				return categories.create(body.name)
+			},
+			{ body: categoryBody, transform: requireRole("CUSTODIAN") }
+		)
+		.patch("/categories/:id", ({ params, body }) => categories.rename(params.id, body.name), {
+			body: categoryBody,
+			transform: requireRole("CUSTODIAN"),
+		})
 		.get("/items/:id", ({ params, user }) => catalog.getItem(params.id, user.role))
 		.post(
 			"/items",
