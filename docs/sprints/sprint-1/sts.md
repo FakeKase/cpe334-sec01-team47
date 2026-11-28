@@ -81,13 +81,13 @@ Covers every Sprint 1 acceptance criterion (AC-01 to AC-35) in contracts [F-01](
 |---|---|---|---|---|---|
 | TEST-31 | AC-27 | API | PENDING Ra (Borrower 1, t1) and Rb (Borrower 2, t2 > t1); one APPROVED Rc | Custodian `GET /api/requests?status=PENDING` | [Ra, Rb], each with `borrower.displayName`. Rc absent. |
 | TEST-32 | AC-28 | API | PENDING Ra on X 20–22 Nov | Custodian approves Ra; Borrower 1 `GET /api/requests/Ra` | 200 `APPROVED`, `decidedBy.id` = Custodian, `decidedAt` set; DB row matches; the Borrower sees `APPROVED`. |
-| TEST-33 | AC-29 | API | PENDING A (20–22) and B (21–23) on X | Approve A, then approve B | 200; then 409 `PERIOD_UNAVAILABLE`, B still `PENDING`. |
+| TEST-33 | AC-29 | API | PENDING A (20–22) and B (21–23) on X | Approve A, then approve B | 200; B is `REJECTED` with "Item booked by another request."; then 409 `INVALID_TRANSITION`, B unchanged. *(v0.3, CR-01. v0.2: 409 `PERIOD_UNAVAILABLE`, B still `PENDING`.)* The second case (a `CHECKED_OUT` period blocks, an adjacent period does not) is unchanged. |
 | TEST-34 | AC-30 | API | PENDING Ra on X; then set X to MAINTENANCE via Prisma | Approve Ra | 409 `ITEM_NOT_AVAILABLE`. Ra still `PENDING`. |
 | TEST-35 | AC-31 | API | PENDING Ra, Rb | Reject Ra with `"  Exam week  "`; reject Rb with `""`, `"   "`, 501×"a" | Ra 200 `REJECTED`, stored reason `"Exam week"`. Rb: three 400 (`reason`), still `PENDING`. |
 | TEST-36 | AC-32 | Unit | — | `canTransition(from, to)` for all 36 (from, to) pairs | true for exactly the 6 BR-06 pairs, false for the other 30. |
 | TEST-37 | AC-32 | API | Ra APPROVED, Rb REJECTED, Rc PENDING with 10–12 Nov (inserted via Prisma; today = 15 Nov) | Approve Ra; reject Ra; approve Rb; approve Rc; reject Rc | 409 ×4 (`INVALID_TRANSITION`), each unchanged; final reject Rc → 200. |
 | TEST-38 | AC-33 | API | Borrower 1's PENDING Ra | Borrower 1 calls approve and reject on Ra | 403 ×2. Ra unchanged (`PENDING`, `decidedById` null). |
-| TEST-39 | AC-34 | API | PENDING A (20–22) and B (21–23) on X | `Promise.all([approve A, approve B])` with one Custodian token; repeat 10× with a fresh fixture each time | In every run: statuses are one 200 and one 409 `PERIOD_UNAVAILABLE`, and the DB has exactly one APPROVED among A and B. |
+| TEST-39 | AC-34 | API | PENDING A (20–22) and B (21–23) on X | `Promise.all([approve A, approve B])` with one Custodian token; repeat 10× with a fresh fixture each time | In every run: statuses are one 200 and one 409 `INVALID_TRANSITION`, and the DB has exactly one APPROVED among A and B and the other REJECTED with the automatic reason. *(v0.3, CR-01. v0.2: the 409 was `PERIOD_UNAVAILABLE` and the other stayed PENDING.)* |
 | TEST-41 | AC-35 | E2E | Seeded app with one PENDING request from Borrower 1 | Custodian: open `/requests` → Reject → try to confirm with an empty reason → type a reason → confirm. Borrower: open `/requests`. | Confirm disabled while empty. After confirming, the row disappears and the "Request rejected" toast shows. The Borrower sees "You are not allowed to do this". |
 
 ### Cross-feature journey
@@ -123,6 +123,22 @@ section F4.2 of the Deliverable 1 report. That table maps every AC to its planne
 name, and the result, and names the tested commit, the command and the pass, fail and skip counts. Each
 release records the same fields.
 
+## CR-01 Approving a request rejects the overlapping pending requests (F-05 v0.3)
+
+Change request: [CR-01](../../changes/CR-01-auto-reject-overlapping-requests.md). Contract: [F-05 v0.3](F-05-review-requests.md).
+Files: `server/test/api/review.test.ts` (the revised TEST-33 and TEST-39 and the new API tests),
+`client/src/pages/Requests.test.tsx`, `e2e/review-requests.spec.ts`. Fixed clock: today = 2026-11-15.
+
+| Test | AC | Level | Precondition / input | Action | Expected result |
+|---|---|---|---|---|---|
+| TEST-142 | AC-121 | API | On CPE-0201 pending A 20–22, B 21–23, C 22–24, D 23–25, E 18–19, F 19–20 Nov; pending G on CPE-0202 21–23 | Custodian approves A; then `GET /api/requests` | 200, `autoRejectedCount = 3`. B, C and F `REJECTED` with the reason, `decidedById` = Custodian, `decidedAt` set. D, E, G `PENDING` with no decision fields. |
+| TEST-143 | AC-122 | API | A 20–22 and, one at a time, a pending request on 22–24, 19–20, 23–25, 18–19, 20–22, 21–21 | Approve A | 22–24, 19–20, 20–22 and 21–21 rejected. 23–25 and 18–19 stay pending (`it.each`). |
+| TEST-144 | AC-123 | API | Pending A and overlapping B. Then variants: A already `APPROVED`; item `MAINTENANCE`; A with due date 10 Nov; an overlapping overdue `CHECKED_OUT` loan; a Borrower token | Try to approve A each time | 409 `INVALID_TRANSITION`, 409 `ITEM_NOT_AVAILABLE`, 409 `INVALID_TRANSITION`, 409 `PERIOD_UNAVAILABLE`, 403. In every case B stays `PENDING` with no decision fields. |
+| TEST-145 | AC-124 | API | Borrower 2 holds 3 active requests, one of them overlapping A. Custodian approves A | Borrower 2: `GET /api/requests`, create a request, then Custodian approves the rejected one | The rejected one is `REJECTED` with the reason. The create is 201 (a slot freed). The approve is 409 `INVALID_TRANSITION`. |
+| TEST-146 | AC-125 | API | (a) Pending A with no overlapping pending request. (b) Pending A with a pending B overlapping it. (c) Approved A with a pending B inserted directly with SQL (data from before the change). (d) Pending A and B overlapping | (a) Approve A. (b) Reject A. (c) Check out A. (d) Approve A, then the Borrower cancels A | (a) 200, `autoRejectedCount = 0`, no other row changes. (b) B stays `PENDING`. (c) B stays `PENDING`. (d) B was rejected by the approval, and after the cancel B is still `REJECTED`. |
+| TEST-147 | AC-126 | Component | MSW: approve returns `autoRejectedCount` 0, 1 and 2; the Pending list is requested again | Approve in each case | Toast "Request approved", then "Request approved. 1 overlapping request was rejected.", then "Request approved. 2 overlapping requests were rejected." The list is reloaded only when the count is above 0. |
+| TEST-148 | AC-127 | E2E | Seeded app. Borrower 1 and Borrower 2 request overlapping dates for CPE-0302 | Custodian approves Borrower 1's. Borrower 2 opens My requests | Borrower 2's request is **Rejected** with "Reason: Item booked by another request." |
+
 ## Version history
 
 | Version | Date | Change | Reason |
@@ -132,3 +148,4 @@ release records the same fields.
 | 0.2.1 | 2026-11-12 | TEST-25 sets the rejected status via Prisma instead of calling the reject endpoint. | PR #3 review: keeps AC-21 testable if F-05 reject slips (plan.md §D5). |
 | 0.2.2 | 2026-11-13 | TEST-20 adds a padded 300-character purpose. | F-03 v0.1.1: the purpose limit applies after trimming. |
 | 0.2.3 | 2026-11-14 | §4 no longer holds an empty results template. It points to the release results table (Part F4.2 of the report). | Deliverable 1 review: an unfilled template was left in the document. |
+| 0.3 | 2026-11-28 | TEST-33 and TEST-39 revised for the automatic rejection. TEST-142 to TEST-148 added. | CR-01 (Lab 7): the old expectations `PERIOD_UNAVAILABLE` and "stays PENDING" no longer hold for pending requests that approval now rejects. All other tests keep their expected results. |

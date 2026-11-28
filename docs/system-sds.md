@@ -55,7 +55,7 @@ flowchart LR
 | Role restrictions (BR-13) | `requireRole('CUSTODIAN' \| 'BORROWER')` middleware per route | → 403 `FORBIDDEN`. |
 | Ownership (BR-14) | Service queries are scoped by `borrowerId = req.user.id` for Borrowers | Not found in scope → 404. |
 | Business rules BR-01–BR-12 | **Services**, using pure functions in `domain/` | Pure functions are unit-tested. Services run checks and writes in one transaction. |
-| Concurrency (NFR-05) | Service transaction: `SELECT … FROM "Item" WHERE id = $1 FOR UPDATE`, then overlap check, then conditional update | Serialises create/approve for the same item. |
+| Concurrency (NFR-05) | Service transaction: `SELECT … FROM "Item" WHERE id = $1 FOR UPDATE`, then overlap check, then conditional update (approve also rejects the overlapping pending requests inside this transaction, CR-01) | Serialises create/approve for the same item. |
 | Last-line integrity | Database | Unique email, unique asset tag, FK constraints, `CHECK (due_date >= start_date)`. |
 | UI checks | React forms | Same rules duplicated only for faster feedback. The server response is authoritative and is displayed as-is. |
 

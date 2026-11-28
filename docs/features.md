@@ -1,6 +1,6 @@
 # Part B (1/2) — Feature Inventory
 
-**Document version:** 0.2 (draft, 2026-11-12)
+**Document version:** 0.3 (draft, 2026-11-28)
 
 Features (`F-xx`) are user-visible capabilities. System responsibilities (`SR-xx`) are cross-cutting
 engineering work that requirements depend on but that no single screen owns. Requirement IDs refer to
@@ -14,7 +14,7 @@ engineering work that requirements depend on but that no single screen owns. Req
 | **F-02** | Equipment catalog | List non-retired items with category, status and "available today". Filter by category. Item detail with committed periods. Public category list. | FR-04, FR-05, NFR-01 | F-01, SR-01 | 1 |
 | **F-03** | Submit borrow request | Borrower requests one item for a date range with a purpose. Validates the period, item status, overlap, duplicates and the active limit. | FR-06, BR-01, BR-02, BR-03, BR-04, BR-05, BR-13, NFR-02 | F-01, F-02 | 1 |
 | **F-04** | My requests | Borrower lists and opens their own requests and sees status and rejection reasons. Ownership enforced. | FR-07, BR-14, NFR-02 | F-01, F-03 | 1 |
-| **F-05** | Review requests | Custodian request list and pending queue, approve (rechecks BR-02/BR-03 under a lock), reject with a reason. | FR-08, FR-09, FR-10, BR-02, BR-03, BR-06, BR-07, BR-13, NFR-02, NFR-05 | F-01, F-03 | 1 |
+| **F-05** | Review requests | Custodian request list and pending queue, approve (rechecks BR-02/BR-03 under a lock, then rejects the overlapping pending requests in the same transaction, CR-01), reject with a reason. | FR-08, FR-09, FR-10, BR-02, BR-03, BR-06, BR-07, BR-13, NFR-02, NFR-05 | F-01, F-03 | 1 |
 | **F-06** | Cancel request | Borrower cancels their own `PENDING` or `APPROVED` request. | FR-11, BR-06, BR-14 | F-04 | 2 |
 | **F-07** | Checkout and return | Custodian records the hand-over of an approved request and the return of a checked-out one, with condition. A damaged return sends the item to maintenance. | FR-12, FR-13, BR-06, BR-09, BR-10 | F-05 | 2 |
 | **F-08** | Overdue tracking | Derived overdue flag, custodian overdue list, blocking of new requests from overdue borrowers, overdue loans keep occupying the item (also changes the F-03/F-05 overlap checks and F-02 `availableToday` / `committedPeriods`). | FR-14, BR-03 (overdue extension), BR-08 | F-07 | 2 |

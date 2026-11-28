@@ -1,6 +1,6 @@
 # Part B (2/2) — Requirements Traceability
 
-**Document version:** 0.2 (draft, 2026-11-12)
+**Document version:** 0.3 (draft, 2026-11-28)
 
 Each baseline requirement is mapped to the feature or system responsibility that delivers it, the sprint
 that establishes it and how it is verified. Sprint 1 rows give the exact acceptance criteria (AC) and test
@@ -21,7 +21,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-06 Submit request | F-03 | 1 | AC-15, AC-17, AC-23 / TEST-17, TEST-20, TEST-27, TEST-40 |
 | FR-07 My requests | F-04 | 1 | AC-24, AC-26 / TEST-28, TEST-30, TEST-40 |
 | FR-08 Custodian request list / queue | F-05 | 1 | AC-27, AC-35 / TEST-31, TEST-41 |
-| FR-09 Approve | F-05 | 1 | AC-28 / TEST-32, TEST-40, TEST-41 |
+| FR-09 Approve | F-05 | 1 | AC-28 / TEST-32, TEST-40, TEST-41. CR-01 adds AC-121 to AC-127 / TEST-142 to TEST-148 (planned until run). |
 | FR-10 Reject with reason | F-05 | 1 | AC-31 / TEST-35, TEST-41 |
 | FR-11 Cancel | F-06 | 2 | AC-36 to AC-42 / TEST-42 to TEST-50 (API per allowed and forbidden state, concurrency, component, E2E) |
 | FR-12 Checkout | F-07 | 2 | AC-55 to AC-59, AC-64, AC-65 / TEST-65 to TEST-70, TEST-75, TEST-76, TEST-78, TEST-79 (API, window boundaries, concurrency, component, E2E) |
@@ -41,7 +41,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 |---|---|---|---|
 | BR-01 Valid loan period | F-03 | 1 | AC-16 / TEST-18 (unit), TEST-19 |
 | BR-02 Only active items | F-03 (create), F-05 (approve) | 1 | AC-18, AC-30 / TEST-21, TEST-34 |
-| BR-03 No double booking | F-03, F-05; overdue extension in F-08 (also changes F-02) | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39; AC-70 to AC-72 / TEST-86 to TEST-88 (overdue extension, incl. checkout) |
+| BR-03 No double booking | F-03, F-05; overdue extension in F-08 (also changes F-02) | 1 (ext. 2) | AC-19, AC-29, AC-34 / TEST-22 (unit), TEST-23, TEST-33, TEST-39 (AC-29, AC-34, TEST-33, TEST-39 revised by CR-01, F-05 v0.3); AC-70 to AC-72 / TEST-86 to TEST-88 (overdue extension, incl. checkout) |
 | BR-04 No duplicate request | F-03 | 1 | AC-20 / TEST-24 |
 | BR-05 Active request limit | F-03 | 1 | AC-21 / TEST-25 |
 | BR-06 Lifecycle transitions | F-05 (approve/reject); F-06, F-07 (rest) | 1, 2 | AC-32 / TEST-36 (unit, full table), TEST-37; cancel in F-06 (AC-39); checkout and return in F-07 (AC-57, AC-63 / TEST-68, TEST-74) |
@@ -96,3 +96,4 @@ date and reason. The original text stays in version history.
 |---|---|---|---|---|
 | CH-01 | 2026-11-12 | NFR-14 login throttling moved from SR-03 (Sprint 3) to SR-02 (Sprint 2). | The service is public from Sprint 2 with seeded accounts (PR #3 review). | Team (PR #3) |
 | CH-02 | 2026-11-12 | Sprint 1 target moved from 8 Nov to 15 Nov, overlapping Lab 5. | Deliverable 1 date had passed before the specification was written (PR #3 review). | Team (PR #3) |
+| CH-03 | 2026-11-28 | Approving a request (FR-09, BR-03, F-05) rejects the overlapping pending requests automatically. F-05 contract v0.3, AC-29 and AC-34 revised, AC-121 to AC-127 and TEST-142 to TEST-148 added. See [CR-01](changes/CR-01-auto-reject-overlapping-requests.md). | Lab 7 change request: pending requests that can no longer be approved should not stay pending. | Team (CR-01); teammate review of the contract pending |

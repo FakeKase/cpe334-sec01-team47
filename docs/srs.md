@@ -2,7 +2,7 @@
 
 **Product:** Inventory and Borrowing System (ระบบคลังอุปกรณ์และยืม-คืน)
 **Team:** CPE 334 Section 01, Team 47
-**Document version:** 0.2 (draft, 2026-11-12). See [Version history](#a8-version-history).
+**Document version:** 0.3 (draft, 2026-11-28). See [Version history](#a8-version-history).
 
 ---
 
@@ -116,7 +116,7 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 |---|---|---|---|
 | **BR-01** | **Valid loan period.** The start date must be today or later. The due date must be on or after the start date. The period (due − start + 1) is at most **14 days**. | Request creation | 1 |
 | **BR-02** | **Only active items are lendable.** A request can be created or approved only for an item whose status is `ACTIVE`. Items in `MAINTENANCE` or `RETIRED` are rejected. | Creation, approval | 1 |
-| **BR-03** | **No double booking.** A request cannot be created or approved if its period overlaps the period of any `APPROVED` or `CHECKED_OUT` request for the same item. A `CHECKED_OUT` loan that is overdue occupies the item until it is returned: its effective end is `max(dueDate, today)`. Overlapping `PENDING` requests from different borrowers may coexist, but only one of them can be approved. | Creation, approval | 1 (overdue extension: 2) |
+| **BR-03** | **No double booking.** A request cannot be created or approved if its period overlaps the period of any `APPROVED` or `CHECKED_OUT` request for the same item. A `CHECKED_OUT` loan that is overdue occupies the item until it is returned: its effective end is `max(dueDate, today)`. Overlapping `PENDING` requests from different borrowers may coexist, but only one of them can be approved, and approving one rejects the pending requests that overlap it automatically, with the reason "Item booked by another request." (CR-01, v0.3). | Creation, approval | 1 (overdue extension: 2) |
 | **BR-04** | **No duplicate request.** A Borrower cannot create a request whose period overlaps one of their *own* active requests for the same item. | Creation | 1 |
 | **BR-05** | **Active request limit.** A Borrower may hold at most **3** active requests at any time. | Creation | 1 |
 | **BR-06** | **Lifecycle transitions.** Only these transitions are allowed: `PENDING→APPROVED`, `PENDING→REJECTED`, `PENDING→CANCELLED`, `APPROVED→CHECKED_OUT`, `APPROVED→CANCELLED`, `CHECKED_OUT→RETURNED`. Every other transition is refused and leaves the request unchanged. `REJECTED`, `CANCELLED` and `RETURNED` are final. A `PENDING` request whose due date has already passed can no longer be approved, only rejected. | Every state change | 1 (approve/reject), 2 (rest) |
@@ -183,7 +183,7 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 | ID | Question | Resolution |
 |---|---|---|
 | Q-01 | Can a Custodian borrow equipment? | No. A person who needs both roles gets two accounts (BR-13). Revisit if stakeholders object. |
-| Q-02 | Should overlapping pending requests be blocked at creation? | No. Only approved/checked-out periods block creation (BR-03). Competing requests are allowed and the custodian picks one. A borrower's own duplicates are blocked (BR-04). |
+| Q-02 | Should overlapping pending requests be blocked at creation? | No. Only approved/checked-out periods block creation (BR-03). Competing requests are allowed and the custodian picks one. A borrower's own duplicates are blocked (BR-04). **Changed by CR-01 (2026-11-28):** when the custodian approves one, the overlapping pending requests are rejected automatically. |
 | Q-03 | What happens to approved loans when an item goes to maintenance? | They stay approved. The custodian decides whether to cancel them. New approvals are blocked (BR-02). Retirement is stricter (BR-11). |
 | Q-04 | Maximum loan length and active-request limit? | 14 days and 3 active requests (BR-01, BR-05). These are configurable constants. Confirm the values with the stakeholder. |
 | Q-05 | Is a separate Admin role needed? | Not for this product. Accounts are seeded and advanced account administration is excluded. |
@@ -196,3 +196,4 @@ All dates are calendar dates in the **Asia/Bangkok** timezone. Loan periods are 
 |---|---|---|---|
 | 0.1 | 2026-11-10 | Team 47 | Initial SRS: context, actors, scope, FR-01–21, BR-01–14, NFR-01–14, assumptions and decisions. |
 | 0.2 | 2026-11-12 | Team 47 | NFR-14 moved to Sprint 2 (CH-01), PR #3 review. |
+| 0.3 | 2026-11-28 | Team 47 | BR-03 and Q-02: approving a request rejects the overlapping pending requests automatically (CR-01, Lab 7). |
