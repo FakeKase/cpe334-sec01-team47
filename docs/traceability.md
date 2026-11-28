@@ -29,7 +29,7 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-14 Overdue | F-08 | 2 | AC-66 to AC-68, AC-73 to AC-75 / TEST-80 (unit, fixed clock), TEST-81 to TEST-83, TEST-89 (API, incl. the F-02 regression), TEST-90 to TEST-92 (component) |
 | FR-15 Create/edit items | F-09 | 2 | AC-43–AC-46, AC-52, AC-54 / TEST-51, TEST-53–TEST-55, TEST-61, TEST-63, TEST-64 |
 | FR-16 Item status | F-09 | 2 | AC-47, AC-48, AC-51, AC-53 / TEST-56, TEST-57, TEST-60, TEST-62, TEST-64 |
-| FR-17 Categories | F-10 | 3 | AC-77 to AC-83 / TEST-94 to TEST-101 (API create, rename, case-insensitive duplicate, concurrency, validation, roles; component; E2E). Planned until run. |
+| FR-17 Categories | F-10 | 3 | AC-77 to AC-83 / TEST-94 to TEST-101 (API create, rename, case-insensitive duplicate, concurrency, validation, roles; component; E2E). Run on this branch: all pass (see the F-10 PR). |
 | FR-18 Search / availability | F-11 | 3 | Planned: API tests on overlap-based availability filter |
 | FR-19 Item history | F-12 | 3 | Planned: API test ordering + custodian-only |
 | FR-20 Dashboard | F-13 | 3 | Planned: API test of counts against seeded fixture |

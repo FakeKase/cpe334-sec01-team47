@@ -15,6 +15,7 @@ const links: Record<Role, { to: string; label: string }[]> = {
 		{ to: "/overdue", label: "Overdue" },
 		{ to: "/items", label: "Catalog" },
 		{ to: "/manage/items", label: "Inventory" },
+		{ to: "/manage/categories", label: "Categories" },
 	],
 }
 
