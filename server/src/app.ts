@@ -9,6 +9,7 @@ import { healthRoutes } from "./routes/health"
 import { requestRoutes } from "./routes/requests"
 import { authService } from "./services/authService"
 import { catalogService } from "./services/catalogService"
+import { categoryService } from "./services/categoryService"
 import { inventoryService } from "./services/inventoryService"
 import { requestService } from "./services/requestService"
 
@@ -25,11 +26,12 @@ export function createApp({ prisma, clock = systemClock, sessionTtlHours = 8, ti
 	const catalog = catalogService({ prisma, clock, timeZone })
 	const requests = requestService({ prisma, clock, timeZone })
 	const inventory = inventoryService({ prisma, clock, catalog })
+	const categories = categoryService(prisma)
 	const app = new Elysia({ prefix: "/api" })
 		.use(errorHandler)
 		.use(healthRoutes(prisma))
 		.use(authRoutes(auth))
-		.use(catalogRoutes(auth, catalog, inventory))
+		.use(catalogRoutes(auth, catalog, inventory, categories))
 		.use(requestRoutes(auth, requests))
 
 	// Forces an unexpected error so tests can check the 500 body (AC-08). Never mounted outside tests.

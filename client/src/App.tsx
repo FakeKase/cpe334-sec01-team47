@@ -7,6 +7,7 @@ import { Catalog } from "./pages/Catalog"
 import { ItemDetail } from "./pages/ItemDetail"
 import { EditItem, NewItem } from "./pages/ItemForm"
 import { Login } from "./pages/Login"
+import { ManageCategories } from "./pages/ManageCategories"
 import { ManageItems } from "./pages/ManageItems"
 import { MyRequests } from "./pages/MyRequests"
 import { Overdue } from "./pages/Overdue"
@@ -44,6 +45,7 @@ export function App() {
 					<Route element={<RequireRole allow="CUSTODIAN" />}>
 						<Route path="/requests" element={<Requests />} />
 						<Route path="/overdue" element={<Overdue />} />
+						<Route path="/manage/categories" element={<ManageCategories />} />
 						<Route path="/manage/items" element={<ManageItems />} />
 						<Route path="/manage/items/new" element={<NewItem />} />
 						<Route path="/manage/items/:id" element={<EditItem />} />
