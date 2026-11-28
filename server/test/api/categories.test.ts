@@ -113,6 +113,25 @@ describe("duplicate names (TEST-96, TEST-97, AC-79)", () => {
 		expect(await names()).toEqual(before)
 	})
 
+	it.each(["Micro%", "M%", "%", "Micro_ontrollers"])(
+		"creating %j is 201: percent and underscore are ordinary characters, not wildcards",
+		async (name) => {
+			const res = await create(await custodianToken(), { name })
+
+			expect(res.status).toBe(201)
+			expect(res.body.name).toBe(name)
+		}
+	)
+
+	it("renaming a category to a name with % or _ that only matches another one as a pattern is 200", async () => {
+		const c = await byName("Microcontrollers")
+
+		const res = await rename(await custodianToken(), c.id, { name: "Audio%" })
+
+		expect(res.status).toBe(200)
+		expect(res.body.name).toBe("Audio%")
+	})
+
 	it("two creates of the same name at the same moment: one 201, one 409, one row", async () => {
 		const token = await custodianToken()
 
