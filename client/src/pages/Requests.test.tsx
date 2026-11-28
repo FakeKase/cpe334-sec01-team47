@@ -488,3 +488,41 @@ describe("Check out waits for an overdue loan on the same item (F-08, TEST-91, A
 		expect(await button("Fluke 117 multimeter", "CPE-0202")).toBeEnabled()
 	})
 })
+
+// CR-01 (F-05 v0.3), TEST-147, AC-126: approving can reject overlapping pending requests.
+describe("Approve reports the requests it rejected (CR-01, TEST-147, AC-126)", () => {
+	async function approveWith(autoRejectedCount: number) {
+		signIn(custodian)
+		let lists = 0
+		server.use(
+			http.get("/api/requests", () => {
+				lists++
+				return HttpResponse.json([ra, rb])
+			})
+		)
+		onDecision("approve", () => HttpResponse.json({ ...ra, status: "APPROVED", autoRejectedCount }))
+		renderApp("/requests")
+
+		const row = within(await rowOf("Rigol DS1054Z oscilloscope · CPE-0201"))
+		await userEvent.click(row.getByRole("button", { name: "Approve" }))
+		return { lists: () => lists }
+	}
+
+	it("with nothing rejected the toast is plain and the list is not reloaded", async () => {
+		const { lists } = await approveWith(0)
+		expect(await screen.findByText("Request approved")).toBeInTheDocument()
+		expect(lists()).toBe(1)
+	})
+
+	it("with one rejected the toast says so and the Pending list reloads", async () => {
+		const { lists } = await approveWith(1)
+		expect(await screen.findByText("Request approved. 1 overlapping request was rejected.")).toBeInTheDocument()
+		await waitFor(() => expect(lists()).toBe(2))
+	})
+
+	it("with two rejected the toast uses the plural and the list reloads", async () => {
+		const { lists } = await approveWith(2)
+		expect(await screen.findByText("Request approved. 2 overlapping requests were rejected.")).toBeInTheDocument()
+		await waitFor(() => expect(lists()).toBe(2))
+	})
+})
