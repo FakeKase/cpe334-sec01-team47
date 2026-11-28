@@ -30,10 +30,10 @@ verification. Their AC and tests are written when those contracts are prepared.
 | FR-15 Create/edit items | F-09 | 2 | AC-43–AC-46, AC-52, AC-54 / TEST-51, TEST-53–TEST-55, TEST-61, TEST-63, TEST-64 |
 | FR-16 Item status | F-09 | 2 | AC-47, AC-48, AC-51, AC-53 / TEST-56, TEST-57, TEST-60, TEST-62, TEST-64 |
 | FR-17 Categories | F-10 | 3 | AC-77 to AC-83 / TEST-94 to TEST-101 (API create, rename, case-insensitive duplicate, concurrency, validation, roles; component; E2E). Run on this branch: all pass (see the F-10 PR). |
-| FR-18 Search / availability | F-11 | 3 | Planned: API tests on overlap-based availability filter |
-| FR-19 Item history | F-12 | 3 | Planned: API test ordering + custodian-only |
-| FR-20 Dashboard | F-13 | 3 | Planned: API test of counts against seeded fixture |
-| FR-21 CSV report | F-14 | 3 | Planned: API test of header, rows, date filter, CSV escaping |
+| FR-18 Search / availability | F-11 | 3 | Planned: AC-84 to AC-91 / TEST-102 to TEST-110 (API keyword, combined filters, overlap and overdue boundaries, validation, access; component; E2E). Contract written, not implemented. |
+| FR-19 Item history | F-12 | 3 | Planned: AC-92 to AC-97 / TEST-111 to TEST-116 (API content, order, empty and retired, role; component; E2E). Contract written, not implemented. |
+| FR-20 Dashboard | F-13 | 3 | Planned: AC-98 to AC-105 / TEST-117 to TEST-125 (API counts against a fixture, day boundaries, consistency with the lists, role; component; E2E). Contract written, not implemented. |
+| FR-21 CSV report | F-14 | 3 | Planned: AC-106 to AC-113 / TEST-126 to TEST-134 (unit CSV writer, API rows, range rule, quoting, formula guard, validation, role; component; E2E). Contract written, not implemented. |
 
 ### Business rules
 
@@ -68,9 +68,9 @@ verification. Their AC and tests are written when those contracts are prepared.
 | NFR-08 Config and secrets | SR-02 | 2 | Lab 5 C-03 fresh clone; secret scanning enabled |
 | NFR-09 Quality gate | SR-02 | 2 | Lab 5 C-01, C-02 |
 | NFR-10 Traceable releases | SR-02 | 2 | Lab 5 C-06; smoke test reads `/api/health` commit |
-| NFR-11 Performance | SR-03 (with F-11) | 3 | Scripted p95 timing with large seed |
-| NFR-12 Responsive UI | SR-03 | 3 | Playwright 360 px viewport run + manual check |
-| NFR-13 Accessibility basics | SR-03 | 3 | Playwright + axe-core scan |
+| NFR-11 Performance | SR-03 (with F-11) | 3 | Planned: AC-114 / TEST-135 (`bun run perf`, 500 items and 5,000 requests, 50 sequential calls, p95 < 500 ms). Contract written, not implemented. |
+| NFR-12 Responsive UI | SR-03 | 3 | Planned: AC-115 / TEST-136 (Playwright 360 × 640 on every screen, no horizontal scroll) + manual check. Contract written, not implemented. |
+| NFR-13 Accessibility basics | SR-03 | 3 | Planned: AC-116, AC-117 / TEST-137, TEST-138 (axe-core in both themes, keyboard-only journeys). Contract written, not implemented. |
 | NFR-14 Login throttling | SR-02 | 2 | API test of 6th attempt → 429 |
 
 ## B2. Coverage check
